@@ -4,6 +4,7 @@ import android.content.Context
 import life.myluck.w124.core.GarageJson
 import life.myluck.w124.core.GarageMerge
 import life.myluck.w124.core.GarageState
+import life.myluck.w124.core.InboxBook
 import life.myluck.w124.core.JobBook
 import life.myluck.w124.core.ToolInventory
 import java.io.File
@@ -13,6 +14,7 @@ class LocalGarageStore(private val context: Context) {
     private val analyticsFile get() = File(context.filesDir, "analytics.md")
     private val toolsFile get() = File(context.filesDir, "tools.json")
     private val jobsFile get() = File(context.filesDir, "jobs.json")
+    private val inboxFile get() = File(context.filesDir, "inbox.json")
 
     fun loadOrSeed(): GarageState {
         if (stateFile.exists()) {
@@ -69,6 +71,19 @@ class LocalGarageStore(private val context: Context) {
 
     fun saveJobs(book: JobBook) {
         jobsFile.writeText(GarageJson.encodeJobs(book))
+    }
+
+    fun loadInbox(): InboxBook {
+        if (!inboxFile.exists()) {
+            val seed = GarageJson.decodeInbox(readAsset("inbox.json"))
+            saveInbox(seed)
+            return seed
+        }
+        return GarageJson.decodeInbox(inboxFile.readText())
+    }
+
+    fun saveInbox(book: InboxBook) {
+        inboxFile.writeText(GarageJson.encodeInbox(book))
     }
 
     private fun readAsset(name: String): String =

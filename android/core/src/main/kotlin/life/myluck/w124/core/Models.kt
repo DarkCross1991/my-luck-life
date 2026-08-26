@@ -149,6 +149,30 @@ data class LogEntry(
     override val updatedAt: String,
 ) : DatedId
 
+object InboxStatus {
+    const val PENDING = "pending"
+    const val ANSWERED = "answered"
+}
+
+@Serializable
+data class InboxItem(
+    override val id: String,
+    val date: String,
+    val odometer: Int,
+    val body: String,
+    val status: String = InboxStatus.PENDING,
+    val answer: String? = null,
+    val logId: String,
+    override val updatedAt: String,
+) : DatedId
+
+@Serializable
+data class InboxBook(
+    val schemaVersion: Int = 1,
+    val updatedAt: String,
+    val items: List<InboxItem> = emptyList(),
+)
+
 enum class NodeUrgency {
     URGENT,
     OVERDUE,

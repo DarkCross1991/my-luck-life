@@ -72,6 +72,35 @@ object GarageMutations {
         )
     }
 
+    fun addInquiry(
+        state: GarageState,
+        inbox: InboxBook,
+        item: InboxItem,
+        log: LogEntry,
+    ): Pair<GarageState, InboxBook> {
+        val withLog = addLog(state, log)
+        val odometer = bumpOdometer(withLog.odometer, item.odometer, item.date, "journal", item.updatedAt)
+        val nextState = withLog.copy(updatedAt = item.updatedAt, odometer = odometer)
+        val nextInbox = inbox.copy(
+            updatedAt = item.updatedAt,
+            items = inbox.items.filterNot { it.id == item.id } + item,
+        )
+        return nextState to nextInbox
+    }
+
+    fun answerInbox(inbox: InboxBook, id: String, answer: String, now: String): InboxBook {
+        return inbox.copy(
+            updatedAt = now,
+            items = inbox.items.map { item ->
+                if (item.id != id) item else item.copy(
+                    status = InboxStatus.ANSWERED,
+                    answer = answer,
+                    updatedAt = now,
+                )
+            },
+        )
+    }
+
     private fun bumpOdometer(
         current: Odometer,
         km: Int,

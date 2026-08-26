@@ -45,6 +45,16 @@ object GarageMerge {
         )
     }
 
+    fun mergeInbox(local: InboxBook, remote: InboxBook): InboxBook {
+        val items = mergeById(local.items, remote.items)
+            .sortedWith(compareByDescending<InboxItem> { it.updatedAt }.thenByDescending { it.date })
+        return InboxBook(
+            schemaVersion = maxOf(local.schemaVersion, remote.schemaVersion),
+            updatedAt = maxOf(local.updatedAt, remote.updatedAt),
+            items = items,
+        )
+    }
+
     fun <T : DatedId> mergeById(a: List<T>, b: List<T>): List<T> {
         val map = LinkedHashMap<String, T>()
         (a + b).forEach { item ->

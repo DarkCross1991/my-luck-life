@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,8 @@ import life.myluck.w124.core.FuelAnalytics
 import life.myluck.w124.core.FuelEntry
 import life.myluck.w124.core.FuelReport
 import life.myluck.w124.core.GarageState
+import life.myluck.w124.core.InboxItem
+import life.myluck.w124.core.InboxStatus
 import life.myluck.w124.core.LogEntry
 import life.myluck.w124.core.MissingTool
 import life.myluck.w124.core.NodeStatus
@@ -46,6 +49,9 @@ data class GarageUi(
     val lastTripType: String = life.myluck.w124.core.TripType.MIXED,
     val updates: UpdateUi? = null,
     val missingTools: List<MissingTool> = emptyList(),
+    val inbox: List<InboxItem> = emptyList(),
+    val openJournal: Boolean = false,
+    val activeInquiryId: String? = null,
 )
 
 class GarageViewModel(
@@ -56,6 +62,8 @@ class GarageViewModel(
     private val _draft = MutableStateFlow<ReceiptDraft?>(null)
     private val _receiptBusy = MutableStateFlow(false)
     private val _openFuel = MutableStateFlow(false)
+    private val _openJournal = MutableStateFlow(false)
+    private val _activeInquiryId = MutableStateFlow<String?>(null)
 
     val ui: StateFlow<GarageUi> = combine(
         combine(
@@ -69,17 +77,21 @@ class GarageViewModel(
         },
         combine(
             repository.jobs,
+            repository.inbox,
             _draft,
             _receiptBusy,
             _openFuel,
-            container.updates.ui,
-        ) { jobs, draft, busy, open, updates ->
-            Penta(jobs, draft, busy, open, updates)
+        ) { jobs, inbox, draft, busy, open ->
+            Penta(jobs, inbox, draft, busy, open)
         },
-    ) { garage, extra ->
+        combine(_openJournal, _activeInquiryId, container.updates.ui) { journal, active, updates ->
+            Triple(journal, active, updates)
+        },
+    ) { garage, extra, flags ->
         val state = garage.a
         val tools = garage.e?.tools.orEmpty()
         val jobs = extra.a?.jobs.orEmpty()
+        val inbox = extra.b?.items.orEmpty()
         val nodes = state?.let { NodeStatus.views(it, jobs = jobs, tools = tools) }.orEmpty()
         GarageUi(
             garage = state,
@@ -89,12 +101,15 @@ class GarageViewModel(
             syncing = garage.c,
             syncMessage = garage.d,
             hasToken = settings.hasToken,
-            receiptDraft = extra.b,
-            receiptBusy = extra.c,
-            openFuel = extra.d,
+            receiptDraft = extra.c,
+            receiptBusy = extra.d,
+            openFuel = extra.e,
             lastTripType = settings.lastTripType,
-            updates = extra.e,
+            updates = flags.third,
             missingTools = NodeStatus.missingTools(nodes),
+            inbox = inbox,
+            openJournal = flags.first,
+            activeInquiryId = flags.second,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GarageUi())
 
@@ -120,6 +135,54 @@ class GarageViewModel(
 
     fun markFuelOpened() {
         _openFuel.value = false
+    }
+
+    fun openJournal() {
+        _activeInquiryId.value = null
+        _openJournal.value = true
+    }
+
+    fun closeJournal() {
+        _openJournal.value = false
+    }
+
+    fun submitInquiry(date: String, odometer: Int, body: String) {
+        val now = now()
+        val logId = id()
+        val inboxId = id()
+        val title = "Заметка · ${life.myluck.w124.core.NodeStatus.formatKm(odometer)} км"
+        viewModelScope.launch {
+            repository.addInquiry(
+                InboxItem(
+                    id = inboxId,
+                    date = date,
+                    odometer = odometer,
+                    body = body,
+                    status = InboxStatus.PENDING,
+                    logId = logId,
+                    updatedAt = now,
+                ),
+                LogEntry(
+                    id = logId,
+                    date = date,
+                    title = title,
+                    body = body,
+                    tags = listOf("заметка", "inbox"),
+                    updatedAt = now,
+                ),
+            )
+            _activeInquiryId.value = inboxId
+            repeat(18) {
+                delay(20_000)
+                val answered = repository.inbox.value?.items
+                    ?.firstOrNull { it.id == inboxId }
+                    ?.status == InboxStatus.ANSWERED
+                if (answered) return@launch
+                if (settings.hasToken) {
+                    runCatching { repository.sync("w124: проверка разбора") }
+                }
+            }
+        }
     }
 
     fun clearDraft() {
@@ -221,6 +284,10 @@ class GarageViewModel(
 
     fun allowInstalls() {
         container.updates.openInstallPermission()
+    }
+
+    fun openReleasePage(release: AppRelease) {
+        container.updates.openReleasePage(release)
     }
 
     fun consumeUpdateMessage() {

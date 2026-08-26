@@ -10,7 +10,10 @@ import life.myluck.w124.core.GarageJson
 import life.myluck.w124.core.GarageMerge
 import life.myluck.w124.core.GarageMutations
 import life.myluck.w124.core.GarageState
+import life.myluck.w124.core.InboxBook
+import life.myluck.w124.core.InboxItem
 import life.myluck.w124.core.JobBook
+import life.myluck.w124.core.LogEntry
 import life.myluck.w124.core.ToolInventory
 import life.myluck.w124.sync.GitHubSync
 import life.myluck.w124.sync.SettingsStore
@@ -26,6 +29,7 @@ class GarageRepository(
     private val _analytics = MutableStateFlow("")
     private val _tools = MutableStateFlow<ToolInventory?>(null)
     private val _jobs = MutableStateFlow<JobBook?>(null)
+    private val _inbox = MutableStateFlow<InboxBook?>(null)
     private val _syncing = MutableStateFlow(false)
     private val _syncMessage = MutableStateFlow<String?>(null)
 
@@ -33,6 +37,7 @@ class GarageRepository(
     val analytics: StateFlow<String> = _analytics
     val tools: StateFlow<ToolInventory?> = _tools
     val jobs: StateFlow<JobBook?> = _jobs
+    val inbox: StateFlow<InboxBook?> = _inbox
     val syncing: StateFlow<Boolean> = _syncing
     val syncMessage: StateFlow<String?> = _syncMessage
 
@@ -42,6 +47,7 @@ class GarageRepository(
             _analytics.value = local.loadAnalytics()
             _tools.value = local.loadTools()
             _jobs.value = local.loadJobs()
+            _inbox.value = local.loadInbox()
         }
     }
 
@@ -81,6 +87,21 @@ class GarageRepository(
         mutate { GarageMutations.addLog(it, entry) }
     }
 
+    suspend fun addInquiry(item: InboxItem, log: LogEntry) {
+        mutex.withLock {
+            val state = _state.value ?: return
+            val inbox = _inbox.value ?: local.loadInbox()
+            val (nextState, nextInbox) = GarageMutations.addInquiry(state, inbox, item, log)
+            local.save(nextState)
+            local.saveInbox(nextInbox)
+            _state.value = nextState
+            _inbox.value = nextInbox
+        }
+        if (settings.hasToken) {
+            runCatching { sync(pushMessage = "w124: заметка в журнал") }
+        }
+    }
+
     suspend fun updateOdometer(km: Int, date: String, now: String) {
         mutate { GarageMutations.updateOdometer(it, km, date, now) }
     }
@@ -104,10 +125,12 @@ class GarageRepository(
                 val localState = _state.value ?: local.loadOrSeed().also { _state.value = it }
                 val localTools = _tools.value ?: local.loadTools().also { _tools.value = it }
                 val localJobs = _jobs.value ?: local.loadJobs().also { _jobs.value = it }
+                val localInbox = _inbox.value ?: local.loadInbox().also { _inbox.value = it }
 
                 val pushed = syncState(localState, pushMessage) or
                     syncTools(localTools) or
-                    syncJobs(localJobs)
+                    syncJobs(localJobs) or
+                    syncInbox(localInbox)
                 syncAnalytics()
 
                 _syncMessage.value = if (pushed) {
@@ -172,6 +195,23 @@ class GarageRepository(
         val needPush = remote == null || remote.content != encoded
         if (needPush) {
             github.put("data/w124/jobs.json", encoded, remote?.sha, "w124: планы работ")
+        }
+        return needPush
+    }
+
+    private fun syncInbox(localInbox: InboxBook): Boolean {
+        val remote = github.fetch("data/w124/inbox.json")
+        val merged = if (remote == null) {
+            localInbox
+        } else {
+            GarageMerge.mergeInbox(localInbox, GarageJson.decodeInbox(remote.content))
+        }
+        local.saveInbox(merged)
+        _inbox.value = merged
+        val encoded = GarageJson.encodeInbox(merged)
+        val needPush = remote == null || remote.content != encoded
+        if (needPush) {
+            github.put("data/w124/inbox.json", encoded, remote?.sha, "w124: заметка в журнал")
         }
         return needPush
     }

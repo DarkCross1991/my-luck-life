@@ -42,6 +42,7 @@ fun SettingsScreen(
     onCheckUpdates: () -> Unit,
     onInstall: (AppRelease) -> Unit,
     onAllowInstalls: () -> Unit,
+    onOpenRelease: (AppRelease) -> Unit,
 ) {
     var token by remember { mutableStateOf(snapshot.token) }
     var owner by remember { mutableStateOf(snapshot.owner) }
@@ -65,6 +66,14 @@ fun SettingsScreen(
                     Text("Разрешить установку APK")
                 }
             }
+            Text(
+                "Если установщик пишет «не удалось» — виновата одноразовая подпись старых CI-сборок. " +
+                    "Синхронизируйте журнал, удалите Бортжурнал и поставьте 0.4.0 с GitHub Releases. " +
+                    "Данные в git, с телефона пропадут только локальные несинхронизированные записи. " +
+                    "После этого обновления ставятся поверх.",
+                color = Muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
             Button(
                 onClick = onCheckUpdates,
                 enabled = !updates.checking && !updates.downloading,
@@ -80,6 +89,12 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(if (updates.downloading) "Скачиваю…" else "Обновить до ${latest.versionName}")
+                }
+                OutlinedButton(
+                    onClick = { onOpenRelease(latest) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Открыть ${latest.versionName} в браузере")
                 }
             }
             val older = updates.history.filter { it.versionCode < updates.currentCode }

@@ -49,6 +49,7 @@ fun AppRoot(vm: GarageViewModel) {
     var tab by remember { mutableStateOf(Tab.Home) }
     var settings by remember { mutableStateOf(false) }
     var fuelComposer by remember { mutableStateOf(false) }
+    var journalComposer by remember { mutableStateOf(false) }
     var nodeId by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
@@ -57,10 +58,19 @@ fun AppRoot(vm: GarageViewModel) {
         snackbar.showSnackbar(message)
         vm.consumeMessage()
     }
+    LaunchedEffect(ui.openJournal) {
+        if (ui.openJournal) {
+            journalComposer = true
+            fuelComposer = false
+            settings = false
+            nodeId = null
+        }
+    }
     LaunchedEffect(ui.openFuel) {
         if (ui.openFuel) {
             tab = Tab.Fuel
             fuelComposer = true
+            journalComposer = false
             settings = false
             nodeId = null
             vm.markFuelOpened()
@@ -110,7 +120,7 @@ fun AppRoot(vm: GarageViewModel) {
                 )
             },
             bottomBar = {
-                if (!settings && !fuelComposer && nodeId == null) {
+                if (!settings && !fuelComposer && !journalComposer && nodeId == null) {
                     NavigationBar {
                         Tab.entries.forEach { item ->
                             NavigationBarItem(
@@ -139,6 +149,7 @@ fun AppRoot(vm: GarageViewModel) {
                         onCheckUpdates = { vm.checkUpdates() },
                         onInstall = { vm.installRelease(it) },
                         onAllowInstalls = { vm.allowInstalls() },
+                        onOpenRelease = { vm.openReleasePage(it) },
                     )
                 } else if (garage == null) {
                     Text("Загрузка журнала…", Modifier.padding(24.dp))
@@ -160,6 +171,7 @@ fun AppRoot(vm: GarageViewModel) {
                         ui = ui,
                         vm = vm,
                         onFuel = { fuelComposer = true },
+                        onJournal = { vm.openJournal() },
                         onOpenNode = { nodeId = it },
                     )
                     Tab.Fuel -> FuelScreen(
@@ -168,7 +180,7 @@ fun AppRoot(vm: GarageViewModel) {
                         vm = vm,
                         onAdd = { fuelComposer = true },
                     )
-                    Tab.Log -> LogbookScreen(garage, vm)
+                    Tab.Log -> LogbookScreen(garage, ui, vm)
                     Tab.Nodes -> NodesScreen(ui.nodes, onOpen = { nodeId = it })
                 }
             }
@@ -182,6 +194,17 @@ fun AppRoot(vm: GarageViewModel) {
                 onClose = {
                     fuelComposer = false
                     vm.clearDraft()
+                },
+            )
+        }
+        if (journalComposer && garage != null) {
+            JournalComposerScreen(
+                garage = garage,
+                ui = ui,
+                vm = vm,
+                onClose = {
+                    journalComposer = false
+                    vm.closeJournal()
                 },
             )
         }

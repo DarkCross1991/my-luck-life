@@ -8,6 +8,8 @@ data class AppRelease(
     val apkUrl: String,
     val apkName: String,
     val publishedAt: String,
+    val apkApiUrl: String = "",
+    val apkSize: Long = 0,
 )
 
 object AppVersion {
@@ -20,4 +22,8 @@ object AppVersion {
 
     fun apkFileName(versionCode: Int, versionName: String): String =
         "bortzhurnal-$versionCode-$versionName.apk"
+
+    fun looksLikeApk(head: ByteArray): Boolean {
+        return head.size >= 2 && head[0] == 0x50.toByte() && head[1] == 0x4B.toByte()
+    }
 }

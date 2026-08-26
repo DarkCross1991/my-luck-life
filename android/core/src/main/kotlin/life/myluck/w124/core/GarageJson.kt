@@ -24,4 +24,8 @@ object GarageJson {
     fun decodeJobs(text: String): JobBook = json.decodeFromString(JobBook.serializer(), text)
 
     fun encodeJobs(book: JobBook): String = json.encodeToString(JobBook.serializer(), book) + "\n"
+
+    fun decodeInbox(text: String): InboxBook = json.decodeFromString(InboxBook.serializer(), text)
+
+    fun encodeInbox(book: InboxBook): String = json.encodeToString(InboxBook.serializer(), book) + "\n"
 }

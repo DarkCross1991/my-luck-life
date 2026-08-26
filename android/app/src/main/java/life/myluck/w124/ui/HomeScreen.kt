@@ -42,6 +42,7 @@ fun HomeScreen(
     ui: GarageUi,
     vm: GarageViewModel,
     onFuel: () -> Unit,
+    onJournal: () -> Unit,
     onOpenNode: (String) -> Unit,
 ) {
     var odoDialog by remember { mutableStateOf(false) }
@@ -68,9 +69,13 @@ fun HomeScreen(
             "на ${dateRu(garage.odometer.recordedAt)} · ${garage.vehicle.engine} · ${garage.vehicle.transmission}",
             color = Muted,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onFuel) { Text("Заправка") }
-            OutlinedButton(onClick = { odoDialog = true }) { Text("Пробег") }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Button(onClick = onFuel, modifier = Modifier.weight(1f)) { Text("Заправка") }
+            OutlinedButton(onClick = onJournal, modifier = Modifier.weight(1f)) { Text("Запись") }
+            OutlinedButton(onClick = { odoDialog = true }, modifier = Modifier.weight(1f)) { Text("Пробег") }
         }
         ui.updates?.takeIf { it.updateAvailable }?.latest?.let { latest ->
             Panel {

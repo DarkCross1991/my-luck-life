@@ -24,6 +24,6 @@ tasks.named<ProcessResources>("processTestResources") {
         rename { "seed-state.json" }
     }
     from(rootProject.projectDir.resolve("../data/w124")) {
-        include("jobs.json", "tools.json")
+        include("jobs.json", "tools.json", "inbox.json")
     }
 }

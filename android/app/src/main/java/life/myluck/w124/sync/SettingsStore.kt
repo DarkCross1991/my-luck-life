@@ -26,6 +26,12 @@ class SettingsStore(context: Context) {
             .ifBlank { life.myluck.w124.core.TripType.MIXED }
         set(value) { prefs.edit().putString(TRIP, value).apply() }
 
+    var lastInstallError: String?
+        get() = prefs.getString(INSTALL_ERROR, null)
+        set(value) {
+            prefs.edit().putString(INSTALL_ERROR, value).apply()
+        }
+
     val hasToken: Boolean get() = token.isNotBlank()
 
     private companion object {
@@ -34,5 +40,6 @@ class SettingsStore(context: Context) {
         const val REPO = "repo"
         const val BRANCH = "branch"
         const val TRIP = "trip"
+        const val INSTALL_ERROR = "install_error"
     }
 }

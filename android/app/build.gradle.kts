@@ -19,6 +19,15 @@ android {
     val verCode = versionFile.getValue("VERSION_CODE").toInt()
     val verName = versionFile.getValue("VERSION_NAME")
 
+    signingConfigs {
+        create("stable") {
+            storeFile = file("keystore/bortzhurnal.jks")
+            storePassword = "w124-bortzhurnal-sign"
+            keyAlias = "bortzhurnal"
+            keyPassword = "w124-bortzhurnal-sign"
+        }
+    }
+
     defaultConfig {
         applicationId = "life.myluck.w124"
         minSdk = 26
@@ -28,8 +37,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("stable")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("stable")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

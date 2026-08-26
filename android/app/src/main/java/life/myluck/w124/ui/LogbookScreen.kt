@@ -34,7 +34,7 @@ import life.myluck.w124.ui.theme.Muted
 import java.time.LocalDate
 
 @Composable
-fun LogbookScreen(garage: GarageState, vm: GarageViewModel) {
+fun LogbookScreen(garage: GarageState, ui: GarageUi, vm: GarageViewModel) {
     var add by remember { mutableStateOf(false) }
     val entries = garage.logbook.filterNot { it.deleted }
         .sortedWith(compareByDescending<LogEntry> { it.date }.thenByDescending { it.updatedAt })
@@ -56,11 +56,21 @@ fun LogbookScreen(garage: GarageState, vm: GarageViewModel) {
                 item { Panel { Text("Пока пусто. Пишите осмотры, работы и странности по машине.") } }
             }
             items(entries, key = { it.id }) { entry ->
+                val answer = ui.inbox.firstOrNull { it.logId == entry.id }?.answer
                 Panel {
                     Text(dateRu(entry.date), color = Muted, style = MaterialTheme.typography.labelMedium)
                     Text(entry.title, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(4.dp))
                     Text(entry.body)
+                    if (!answer.isNullOrBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("Разбор", color = Gold, style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(4.dp))
+                        Text(answer)
+                    } else if (entry.tags.contains("inbox")) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Ждёт разбор из git", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    }
                     if (entry.tags.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
                         Text(entry.tags.joinToString(" · "), color = Muted, style = MaterialTheme.typography.bodySmall)
