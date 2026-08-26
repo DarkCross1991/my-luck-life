@@ -34,8 +34,6 @@
       "tripType": "city",
       "station": null,
       "note": null,
-      "receiptText": null,
-      "source": "manual",
       "deleted": false,
       "updatedAt": "2026-08-26T13:19:52.206191Z"
     }
