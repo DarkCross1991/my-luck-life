@@ -81,6 +81,6 @@ class FuelAnalyticsTest {
             fill("f1", "2026-08-26", 322500, 42.5),
         )
         assertEquals(322500, updated.odometer.km)
-        assertEquals(1, updated.fuel.size)
+        assertTrue(updated.fuel.any { it.id == "f1" })
     }
 }

@@ -99,8 +99,8 @@ fun SettingsScreen(
         }
 
         Text(
-            "Источник правды — git. С телефона пишем заправки, пробег и заметки. " +
-                "С компьютера агент дописывает analytics.md и регламент узлов.",
+            "Источник правды — git. С телефона пишем заправки, пробег, заметки и галочки инструмента. " +
+                "С компьютера агент дописывает analytics.md, планы работ в jobs.json и регламент узлов.",
             color = Muted,
         )
         Text("GitHub", style = MaterialTheme.typography.titleMedium)
@@ -122,7 +122,7 @@ fun SettingsScreen(
         OutlinedTextField(value = repo, onValueChange = { repo = it }, label = { Text("Репозиторий") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         OutlinedTextField(value = branch, onValueChange = { branch = it }, label = { Text("Ветка") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         Text(
-            if (hasToken) "Токен задан. После сохранения журнал уедет в data/w124/."
+            if (hasToken) "Токен задан. После сохранения уедут state.json, tools.json и jobs.json в data/w124/."
             else "Без токена журнал на телефоне, обновления приложения всё равно проверяются.",
             color = Muted,
         )

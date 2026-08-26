@@ -2,13 +2,22 @@ package life.myluck.w124.core
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 object NodeStatus {
     private val iso: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+    private val ruDate: DateTimeFormatter = DateTimeFormatter.ofPattern("d.MM.yyyy")
 
-    fun views(state: GarageState, today: LocalDate = LocalDate.now()): List<NodeView> {
+    fun views(
+        state: GarageState,
+        today: LocalDate = LocalDate.now(),
+        jobs: List<JobPlan> = emptyList(),
+        tools: List<ToolItem> = emptyList(),
+    ): List<NodeView> {
+        val jobBy = jobs.associateBy { it.nodeId }
+        val toolBy = tools.associateBy { it.id }
         return state.nodes
-            .map { view(it, state.odometer.km, today) }
+            .map { view(it, state.odometer.km, today, jobBy[it.id], toolBy, state.vehicle.purchasedAt) }
             .sortedWith(
                 compareBy<NodeView> { urgencyRank(it.urgency) }
                     .thenBy { it.dueKm ?: Int.MAX_VALUE }
@@ -16,7 +25,14 @@ object NodeStatus {
             )
     }
 
-    fun view(node: NodeItem, odometerKm: Int, today: LocalDate = LocalDate.now()): NodeView {
+    fun view(
+        node: NodeItem,
+        odometerKm: Int,
+        today: LocalDate = LocalDate.now(),
+        job: JobPlan? = null,
+        toolsById: Map<String, ToolItem> = emptyMap(),
+        purchasedAt: String? = null,
+    ): NodeView {
         val dueKm = node.lastDoneKm?.let { last -> node.intervalKm?.let { last + it } }
         val dueDate = node.lastDoneAt?.let { last ->
             node.intervalMonths?.let { months -> parse(last)?.plusMonths(months.toLong())?.toString() }
@@ -36,19 +52,45 @@ object NodeStatus {
             node.open -> NodeUrgency.WATCH
             else -> NodeUrgency.OK
         }
+        val openedAt = job?.openedAt ?: node.lastDoneAt ?: purchasedAt
+        val hangingDays = openedAt?.let { start ->
+            parse(start)?.let { ChronoUnit.DAYS.between(it, today).toInt().coerceAtLeast(0) }
+        } ?: 0
+        val required = job?.toolIds.orEmpty().mapNotNull { toolsById[it] }
         return NodeView(
             node = node,
             urgency = urgency,
             dueKm = dueKm,
             dueDate = dueDate,
             reasonRu = reason(node, urgency, dueKm, dueDate, odometerKm),
+            job = job,
+            hangingDays = hangingDays,
+            hangingRu = hangingRu(openedAt, hangingDays, purchasedAt),
+            required = required,
         )
     }
 
     fun nearest(state: GarageState, today: LocalDate = LocalDate.now(), limit: Int = 4): List<NodeView> {
-        return views(state, today)
-            .filter { it.urgency != NodeUrgency.OK }
-            .take(limit)
+        return views(state, today).filter { it.urgency != NodeUrgency.OK }.take(limit)
+    }
+
+    fun urgentWork(views: List<NodeView>): List<NodeView> {
+        return views.filter { it.urgency == NodeUrgency.URGENT || it.urgency == NodeUrgency.OVERDUE }
+    }
+
+    fun missingTools(views: List<NodeView>): List<MissingTool> {
+        val current = urgentWork(views)
+        val neededFor = linkedMapOf<String, MutableList<String>>()
+        val byId = linkedMapOf<String, ToolItem>()
+        current.forEach { view ->
+            view.required.filter { it.isTool && !it.have }.forEach { tool ->
+                byId.putIfAbsent(tool.id, tool)
+                neededFor.getOrPut(tool.id) { mutableListOf() }.add(view.node.title)
+            }
+        }
+        return byId.values.map { tool ->
+            MissingTool(tool = tool, neededFor = neededFor[tool.id].orEmpty().distinct())
+        }.sortedBy { it.tool.name }
     }
 
     fun urgencyLabelRu(urgency: NodeUrgency): String = when (urgency) {
@@ -57,6 +99,29 @@ object NodeStatus {
         NodeUrgency.SOON -> "Скоро"
         NodeUrgency.WATCH -> "Смотреть"
         NodeUrgency.OK -> "Норма"
+    }
+
+    fun daysRu(n: Int): String {
+        val n10 = n % 10
+        val n100 = n % 100
+        val word = when {
+            n100 in 11..14 -> "дней"
+            n10 == 1 -> "день"
+            n10 in 2..4 -> "дня"
+            else -> "дней"
+        }
+        return "$n $word"
+    }
+
+    private fun hangingRu(openedAt: String?, days: Int, purchasedAt: String?): String {
+        val since = openedAt?.let { parse(it)?.format(ruDate) }
+        val fromPurchase = openedAt != null && openedAt == purchasedAt
+        val prefix = when {
+            days <= 0 && since != null -> "Открыта сегодня"
+            fromPurchase -> "Висит с покупки · уже ${daysRu(days)}"
+            else -> "Висит уже ${daysRu(days)}"
+        }
+        return if (since != null && days > 0) "$prefix · с $since" else prefix
     }
 
     private fun reason(

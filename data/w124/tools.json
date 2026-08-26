@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-26T14:00:00Z",
+  "tools": [
+    {
+      "id": "flashlight",
+      "name": "Фонарь",
+      "kind": "tool",
+      "have": false,
+      "note": "Под капотом и в арках без него слепо.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "screwdriver-long",
+      "name": "Длинная отвёртка",
+      "kind": "tool",
+      "have": false,
+      "note": "Как стетоскоп: жало к уху, ручка к подшипнику.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "stethoscope",
+      "name": "Автостетоскоп",
+      "kind": "tool",
+      "have": false,
+      "note": "Удобнее отвёртки, но не обязателен, если есть длинная отвёртка.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "gloves",
+      "name": "Перчатки",
+      "kind": "tool",
+      "have": false,
+      "note": null,
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "ratchet",
+      "name": "Трещотка 1/2\"",
+      "kind": "tool",
+      "have": false,
+      "note": null,
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "extension",
+      "name": "Удлинитель для свечей",
+      "kind": "tool",
+      "have": false,
+      "note": "Свечные колодцы M102 глубокие.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "spark-socket-16",
+      "name": "Головка свечная 16 мм",
+      "kind": "tool",
+      "have": false,
+      "note": "Частый размер на Bosch. Взять с собой обе — 16 и 21.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "spark-socket-21",
+      "name": "Головка свечная 21 мм",
+      "kind": "tool",
+      "have": false,
+      "note": "Второй частый размер. Какая сядет — по факту.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "feeler-08",
+      "name": "Щуп зазора 0,8 мм",
+      "kind": "tool",
+      "have": false,
+      "note": "Зазор свечей M102.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "pliers",
+      "name": "Пассатижи",
+      "kind": "tool",
+      "have": false,
+      "note": "Снимать колпачки бронепроводов без рванья резины.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "socket-set",
+      "name": "Набор головок / ключей",
+      "kind": "tool",
+      "have": false,
+      "note": "13 / 17 мм и крестовые/шлицевые отвёртки на крышки и хомуты.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "hex-set",
+      "name": "Набор шестигранников и отвёрток",
+      "kind": "tool",
+      "have": false,
+      "note": "Монодворник: винты крышки сзади, не поддевать.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "phone-camera",
+      "name": "Телефон с камерой",
+      "kind": "tool",
+      "have": true,
+      "note": "Этот телефон. Фото тяг и метки park до разборки.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "jack",
+      "name": "Домкрат",
+      "kind": "tool",
+      "have": false,
+      "note": "Штатного мало. Смотреть точки W124, не порог-накладку.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "axle-stands",
+      "name": "Страховочные опоры (козелки)",
+      "kind": "tool",
+      "have": false,
+      "note": "Под машину не лезть только на домкрате.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "pit-or-ramps",
+      "name": "Яма или эстакада",
+      "kind": "tool",
+      "have": false,
+      "note": "Для масла, порогов и труб. Можно заменить козелками.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "drain-pan",
+      "name": "Поддон для слива масла",
+      "kind": "tool",
+      "have": false,
+      "note": null,
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "oil-filter-wrench",
+      "name": "Съёмник масляного фильтра",
+      "kind": "tool",
+      "have": false,
+      "note": null,
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "funnel",
+      "name": "Воронка",
+      "kind": "tool",
+      "have": false,
+      "note": "Долив масла для замера жора и замена.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "compression-tester",
+      "name": "Компрессометр",
+      "kind": "tool",
+      "have": false,
+      "note": "После свечей. Норма M102 примерно 10–12 бар, разброс между цилиндрами небольшой.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "torque-wrench",
+      "name": "Динамометрический ключ",
+      "kind": "tool",
+      "have": false,
+      "note": "Свечи и пробки. Без него — без фанатизма, не сорвать резьбу ГБЦ.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "wire-brush",
+      "name": "Металлическая щётка",
+      "kind": "tool",
+      "have": false,
+      "note": "Пороги, арки, трубки — счистить рыхлую ржавчину для осмотра.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "spark-plugs-new",
+      "name": "Свечи Bosch WR8DC+ / NGK BPR6ES",
+      "kind": "part",
+      "have": false,
+      "note": "Зазор 0,8 мм. Старые сохранить.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "ignition-wires-new",
+      "name": "Бронепровода (комплект в багажнике)",
+      "kind": "part",
+      "have": true,
+      "note": "Новые уже лежат в багажнике, не установлены.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "tensioner-kit",
+      "name": "Комплект: натяжитель + ролик + демпфер",
+      "kind": "part",
+      "have": false,
+      "note": "Покупать после подтверждения подшипника, не заранее «на всякий».",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "engine-oil-5l",
+      "name": "Масло ДВС ~5 л 10W-40 / 5W-40",
+      "kind": "part",
+      "have": false,
+      "note": "Для M102 с пробегом. Понадобится и на замер жора (долив до MAX).",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "oil-filter",
+      "name": "Масляный фильтр",
+      "kind": "part",
+      "have": false,
+      "note": null,
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "wiper-grease",
+      "name": "Смазка дворника (Gleitpaste / Mobil 1 / Thermoflex)",
+      "kind": "part",
+      "have": false,
+      "note": "Mercedes Gleitpaste A001 989 46 51 или Mobil 1 Synthetic Grease / Liqui Moly Thermoflex. Не литол-24, не графит, не смазка ступиц.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "atf-dexron",
+      "name": "ATF Dexron III",
+      "kind": "part",
+      "have": false,
+      "note": "На вал монодворника снаружи и на АКПП 722.4.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "coolant-g48",
+      "name": "Охлаждайка G48 / аналог",
+      "kind": "part",
+      "have": false,
+      "note": "Не смешивать цвета вслепую.",
+      "updatedAt": "2026-08-26T14:00:00Z"
+    }
+  ]
+}

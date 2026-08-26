@@ -16,6 +16,7 @@ import life.myluck.w124.core.FuelEntry
 import life.myluck.w124.core.FuelReport
 import life.myluck.w124.core.GarageState
 import life.myluck.w124.core.LogEntry
+import life.myluck.w124.core.MissingTool
 import life.myluck.w124.core.NodeStatus
 import life.myluck.w124.core.NodeView
 import life.myluck.w124.core.ParsedReceipt
@@ -44,6 +45,7 @@ data class GarageUi(
     val openFuel: Boolean = false,
     val lastTripType: String = life.myluck.w124.core.TripType.MIXED,
     val updates: UpdateUi? = null,
+    val missingTools: List<MissingTool> = emptyList(),
 )
 
 class GarageViewModel(
@@ -61,27 +63,38 @@ class GarageViewModel(
             repository.analytics,
             repository.syncing,
             repository.syncMessage,
-        ) { state, analytics, syncing, message ->
-            Quad(state, analytics, syncing, message)
+            repository.tools,
+        ) { state, analytics, syncing, message, tools ->
+            Penta(state, analytics, syncing, message, tools)
         },
-        combine(_draft, _receiptBusy, _openFuel, container.updates.ui) { draft, busy, open, updates ->
-            Quad(draft, busy, open, updates)
+        combine(
+            repository.jobs,
+            _draft,
+            _receiptBusy,
+            _openFuel,
+            container.updates.ui,
+        ) { jobs, draft, busy, open, updates ->
+            Penta(jobs, draft, busy, open, updates)
         },
     ) { garage, extra ->
         val state = garage.a
+        val tools = garage.e?.tools.orEmpty()
+        val jobs = extra.a?.jobs.orEmpty()
+        val nodes = state?.let { NodeStatus.views(it, jobs = jobs, tools = tools) }.orEmpty()
         GarageUi(
             garage = state,
             report = FuelAnalytics.report(state?.fuel.orEmpty()),
-            nodes = state?.let { NodeStatus.views(it) }.orEmpty(),
+            nodes = nodes,
             analytics = garage.b,
             syncing = garage.c,
             syncMessage = garage.d,
             hasToken = settings.hasToken,
-            receiptDraft = extra.a,
-            receiptBusy = extra.b,
-            openFuel = extra.c,
+            receiptDraft = extra.b,
+            receiptBusy = extra.c,
+            openFuel = extra.d,
             lastTripType = settings.lastTripType,
-            updates = extra.d,
+            updates = extra.e,
+            missingTools = NodeStatus.missingTools(nodes),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GarageUi())
 
@@ -185,6 +198,10 @@ class GarageViewModel(
         viewModelScope.launch { repository.reopenNode(id, now()) }
     }
 
+    fun setToolHave(id: String, have: Boolean) {
+        viewModelScope.launch { repository.setToolHave(id, have, now()) }
+    }
+
     fun saveGithub(token: String, owner: String, repo: String, branch: String) {
         settings.token = token
         settings.owner = owner
@@ -243,7 +260,7 @@ class GarageViewModel(
     private fun id(): String = UUID.randomUUID().toString()
 }
 
-private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
+private data class Penta<A, B, C, D, E>(val a: A, val b: B, val c: C, val d: D, val e: E)
 
 data class GithubSettings(
     val token: String,

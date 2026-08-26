@@ -15,4 +15,13 @@ object GarageJson {
     fun decodeState(text: String): GarageState = json.decodeFromString(GarageState.serializer(), text)
 
     fun encodeState(state: GarageState): String = json.encodeToString(GarageState.serializer(), state) + "\n"
+
+    fun decodeTools(text: String): ToolInventory = json.decodeFromString(ToolInventory.serializer(), text)
+
+    fun encodeTools(inventory: ToolInventory): String =
+        json.encodeToString(ToolInventory.serializer(), inventory) + "\n"
+
+    fun decodeJobs(text: String): JobBook = json.decodeFromString(JobBook.serializer(), text)
+
+    fun encodeJobs(book: JobBook): String = json.encodeToString(JobBook.serializer(), book) + "\n"
 }

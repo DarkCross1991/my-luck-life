@@ -27,7 +27,25 @@ object GarageMerge {
         )
     }
 
-    private fun <T : DatedId> mergeById(a: List<T>, b: List<T>): List<T> {
+    fun mergeTools(local: ToolInventory, remote: ToolInventory): ToolInventory {
+        val tools = mergeById(local.tools, remote.tools).sortedBy { it.name }
+        return ToolInventory(
+            schemaVersion = maxOf(local.schemaVersion, remote.schemaVersion),
+            updatedAt = maxOf(local.updatedAt, remote.updatedAt),
+            tools = tools,
+        )
+    }
+
+    fun mergeJobs(local: JobBook, remote: JobBook): JobBook {
+        val jobs = mergeById(local.jobs, remote.jobs).sortedBy { it.nodeId }
+        return JobBook(
+            schemaVersion = maxOf(local.schemaVersion, remote.schemaVersion),
+            updatedAt = maxOf(local.updatedAt, remote.updatedAt),
+            jobs = jobs,
+        )
+    }
+
+    fun <T : DatedId> mergeById(a: List<T>, b: List<T>): List<T> {
         val map = LinkedHashMap<String, T>()
         (a + b).forEach { item ->
             val prev = map[item.id]

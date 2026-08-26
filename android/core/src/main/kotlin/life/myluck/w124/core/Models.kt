@@ -95,6 +95,49 @@ data class NodeItem(
     override val updatedAt: String,
 ) : DatedId
 
+object ToolKind {
+    const val TOOL = "tool"
+    const val PART = "part"
+}
+
+@Serializable
+data class ToolItem(
+    override val id: String,
+    val name: String,
+    val kind: String = ToolKind.TOOL,
+    val have: Boolean = false,
+    val note: String? = null,
+    override val updatedAt: String,
+) : DatedId {
+    val isTool: Boolean get() = kind == ToolKind.TOOL
+}
+
+@Serializable
+data class ToolInventory(
+    val schemaVersion: Int = 1,
+    val updatedAt: String,
+    val tools: List<ToolItem> = emptyList(),
+)
+
+@Serializable
+data class JobPlan(
+    val nodeId: String,
+    val what: String,
+    val openedAt: String,
+    val steps: List<String> = emptyList(),
+    val toolIds: List<String> = emptyList(),
+    override val updatedAt: String,
+) : DatedId {
+    override val id: String get() = nodeId
+}
+
+@Serializable
+data class JobBook(
+    val schemaVersion: Int = 1,
+    val updatedAt: String,
+    val jobs: List<JobPlan> = emptyList(),
+)
+
 @Serializable
 data class LogEntry(
     override val id: String,
@@ -150,4 +193,16 @@ data class NodeView(
     val dueKm: Int?,
     val dueDate: String?,
     val reasonRu: String,
+    val job: JobPlan? = null,
+    val hangingDays: Int = 0,
+    val hangingRu: String = "",
+    val required: List<ToolItem> = emptyList(),
+) {
+    val missingTools: List<ToolItem> get() = required.filter { it.isTool && !it.have }
+    val missingParts: List<ToolItem> get() = required.filter { !it.isTool && !it.have }
+}
+
+data class MissingTool(
+    val tool: ToolItem,
+    val neededFor: List<String>,
 )

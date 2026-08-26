@@ -19,7 +19,11 @@ tasks.test {
 }
 
 tasks.named<ProcessResources>("processTestResources") {
-    from(rootProject.projectDir.resolve("../data/w124/state.json")) {
+    from(rootProject.projectDir.resolve("../data/w124")) {
+        include("state.json")
         rename { "seed-state.json" }
+    }
+    from(rootProject.projectDir.resolve("../data/w124")) {
+        include("jobs.json", "tools.json")
     }
 }

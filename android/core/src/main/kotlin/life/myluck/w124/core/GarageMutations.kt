@@ -63,6 +63,15 @@ object GarageMutations {
         )
     }
 
+    fun setToolHave(inventory: ToolInventory, id: String, have: Boolean, now: String): ToolInventory {
+        return inventory.copy(
+            updatedAt = now,
+            tools = inventory.tools.map { tool ->
+                if (tool.id != id) tool else tool.copy(have = have, updatedAt = now)
+            },
+        )
+    }
+
     private fun bumpOdometer(
         current: Odometer,
         km: Int,

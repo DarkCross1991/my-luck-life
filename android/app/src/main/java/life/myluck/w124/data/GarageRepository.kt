@@ -10,6 +10,8 @@ import life.myluck.w124.core.GarageJson
 import life.myluck.w124.core.GarageMerge
 import life.myluck.w124.core.GarageMutations
 import life.myluck.w124.core.GarageState
+import life.myluck.w124.core.JobBook
+import life.myluck.w124.core.ToolInventory
 import life.myluck.w124.sync.GitHubSync
 import life.myluck.w124.sync.SettingsStore
 import life.myluck.w124.sync.SyncException
@@ -22,11 +24,15 @@ class GarageRepository(
     private val mutex = Mutex()
     private val _state = MutableStateFlow<GarageState?>(null)
     private val _analytics = MutableStateFlow("")
+    private val _tools = MutableStateFlow<ToolInventory?>(null)
+    private val _jobs = MutableStateFlow<JobBook?>(null)
     private val _syncing = MutableStateFlow(false)
     private val _syncMessage = MutableStateFlow<String?>(null)
 
     val state: StateFlow<GarageState?> = _state
     val analytics: StateFlow<String> = _analytics
+    val tools: StateFlow<ToolInventory?> = _tools
+    val jobs: StateFlow<JobBook?> = _jobs
     val syncing: StateFlow<Boolean> = _syncing
     val syncMessage: StateFlow<String?> = _syncMessage
 
@@ -34,6 +40,8 @@ class GarageRepository(
         mutex.withLock {
             _state.value = local.loadOrSeed()
             _analytics.value = local.loadAnalytics()
+            _tools.value = local.loadTools()
+            _jobs.value = local.loadJobs()
         }
     }
 
@@ -46,6 +54,18 @@ class GarageRepository(
         }
         if (settings.hasToken) {
             runCatching { sync(pushMessage = "w124: обновление с телефона") }
+        }
+    }
+
+    suspend fun setToolHave(id: String, have: Boolean, now: String) {
+        mutex.withLock {
+            val current = _tools.value ?: local.loadTools()
+            val next = GarageMutations.setToolHave(current, id, have, now)
+            local.saveTools(next)
+            _tools.value = next
+        }
+        if (settings.hasToken) {
+            runCatching { sync(pushMessage = "w124: инструменты с телефона") }
         }
     }
 
@@ -82,29 +102,15 @@ class GarageRepository(
             _syncing.value = true
             try {
                 val localState = _state.value ?: local.loadOrSeed().also { _state.value = it }
-                val remote = github.fetch("data/w124/state.json")
-                val merged = if (remote == null) {
-                    localState
-                } else {
-                    GarageMerge.merge(localState, GarageJson.decodeState(remote.content))
-                }
-                local.save(merged)
-                _state.value = merged
-                val needPush = remote == null || remote.content != GarageJson.encodeState(merged)
-                if (needPush) {
-                    github.put(
-                        path = "data/w124/state.json",
-                        content = GarageJson.encodeState(merged),
-                        sha = remote?.sha,
-                        message = pushMessage,
-                    )
-                }
-                val analytics = github.fetch("data/w124/analytics.md")
-                if (analytics != null) {
-                    local.saveAnalytics(analytics.content)
-                    _analytics.value = analytics.content
-                }
-                _syncMessage.value = if (needPush) {
+                val localTools = _tools.value ?: local.loadTools().also { _tools.value = it }
+                val localJobs = _jobs.value ?: local.loadJobs().also { _jobs.value = it }
+
+                val pushed = syncState(localState, pushMessage) or
+                    syncTools(localTools) or
+                    syncJobs(localJobs)
+                syncAnalytics()
+
+                _syncMessage.value = if (pushed) {
                     "Синхронизировано с GitHub (${settings.branch})."
                 } else {
                     "Уже актуально с GitHub."
@@ -116,6 +122,65 @@ class GarageRepository(
             } finally {
                 _syncing.value = false
             }
+        }
+    }
+
+    private fun syncState(localState: GarageState, pushMessage: String): Boolean {
+        val remote = github.fetch("data/w124/state.json")
+        val merged = if (remote == null) {
+            localState
+        } else {
+            GarageMerge.merge(localState, GarageJson.decodeState(remote.content))
+        }
+        local.save(merged)
+        _state.value = merged
+        val encoded = GarageJson.encodeState(merged)
+        val needPush = remote == null || remote.content != encoded
+        if (needPush) {
+            github.put("data/w124/state.json", encoded, remote?.sha, pushMessage)
+        }
+        return needPush
+    }
+
+    private fun syncTools(localTools: ToolInventory): Boolean {
+        val remote = github.fetch("data/w124/tools.json")
+        val merged = if (remote == null) {
+            localTools
+        } else {
+            GarageMerge.mergeTools(localTools, GarageJson.decodeTools(remote.content))
+        }
+        local.saveTools(merged)
+        _tools.value = merged
+        val encoded = GarageJson.encodeTools(merged)
+        val needPush = remote == null || remote.content != encoded
+        if (needPush) {
+            github.put("data/w124/tools.json", encoded, remote?.sha, "w124: список инструментов")
+        }
+        return needPush
+    }
+
+    private fun syncJobs(localJobs: JobBook): Boolean {
+        val remote = github.fetch("data/w124/jobs.json")
+        val merged = if (remote == null) {
+            localJobs
+        } else {
+            GarageMerge.mergeJobs(localJobs, GarageJson.decodeJobs(remote.content))
+        }
+        local.saveJobs(merged)
+        _jobs.value = merged
+        val encoded = GarageJson.encodeJobs(merged)
+        val needPush = remote == null || remote.content != encoded
+        if (needPush) {
+            github.put("data/w124/jobs.json", encoded, remote?.sha, "w124: планы работ")
+        }
+        return needPush
+    }
+
+    private fun syncAnalytics() {
+        val analytics = github.fetch("data/w124/analytics.md")
+        if (analytics != null) {
+            local.saveAnalytics(analytics.content)
+            _analytics.value = analytics.content
         }
     }
 

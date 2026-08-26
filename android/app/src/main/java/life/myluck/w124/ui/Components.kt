@@ -37,13 +37,27 @@ import life.myluck.w124.ui.theme.Surface2
 import life.myluck.w124.ui.theme.Warn
 
 @Composable
-fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-    ) {
+fun Panel(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val body: @Composable () -> Unit = {
         Column(Modifier.padding(16.dp), content = { content() })
+    }
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface,
+        ) { body() }
+    } else {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface,
+        ) { body() }
     }
 }
 

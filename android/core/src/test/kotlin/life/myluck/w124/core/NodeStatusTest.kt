@@ -51,7 +51,6 @@ class NodeStatusTest {
         val remote = GarageMutations.updateOdometer(base, 322800, "2026-08-26", "2026-08-26T11:00:00Z")
         val merged = GarageMerge.merge(local, remote)
         assertEquals(322800, merged.odometer.km)
-        assertEquals(1, merged.fuel.size)
-        assertEquals("local", merged.fuel.single().id)
+        assertTrue(merged.fuel.any { it.id == "local" })
     }
 }

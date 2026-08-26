@@ -30,8 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import life.myluck.w124.core.GarageState
 import life.myluck.w124.core.NodeStatus
+import life.myluck.w124.ui.theme.Danger
 import life.myluck.w124.ui.theme.Gold
 import life.myluck.w124.ui.theme.Muted
+import life.myluck.w124.ui.theme.Ok
 import java.time.LocalDate
 
 @Composable
@@ -40,9 +42,10 @@ fun HomeScreen(
     ui: GarageUi,
     vm: GarageViewModel,
     onFuel: () -> Unit,
+    onOpenNode: (String) -> Unit,
 ) {
     var odoDialog by remember { mutableStateOf(false) }
-    val nearest = NodeStatus.nearest(garage)
+    val urgent = NodeStatus.urgentWork(ui.nodes)
 
     Column(
         Modifier
@@ -76,25 +79,55 @@ fun HomeScreen(
             }
         }
         ConsumptionStrip(ui.report)
-        Panel {
-            Text("Ближайшее ТО и узлы", color = Muted, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.height(8.dp))
-            nearest.forEach { item ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                        Text(item.node.title, fontWeight = FontWeight.Medium)
-                        Text(item.reasonRu, color = Muted, style = MaterialTheme.typography.bodySmall)
+        Text("Срочные работы", color = Muted, style = MaterialTheme.typography.labelLarge)
+        Text("Нажмите задачу — внутри шаги, срок и инструмент.", color = Muted, style = MaterialTheme.typography.bodySmall)
+        if (urgent.isEmpty()) {
+            Panel {
+                Text("Открытых срочных работ нет.", color = Muted)
+            }
+        } else {
+            urgent.forEach { item ->
+                Panel(onClick = { onOpenNode(item.node.id) }) {
+                    Row(horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(item.node.title, fontWeight = FontWeight.Medium)
+                            Text(item.hangingRu, color = Muted, style = MaterialTheme.typography.bodySmall)
+                            val missing = item.missingTools
+                            if (missing.isNotEmpty()) {
+                                Text(
+                                    "нет: " + missing.joinToString(", ") { it.name },
+                                    color = Danger,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            } else if (item.required.any { it.isTool }) {
+                                Text("инструмент есть", color = Ok, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        UrgencyChip(item.urgency)
                     }
-                    UrgencyChip(item.urgency)
                 }
             }
-            if (nearest.isEmpty()) {
-                Text("Открытых узлов нет.", color = Muted)
+        }
+        Panel {
+            Text("Не хватает по текущим задачам", color = Muted, style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(4.dp))
+            Text("Отметьте, если купили или нашли. Зелёный — есть, красный — нет.", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(8.dp))
+            if (ui.missingTools.isEmpty()) {
+                Text("По срочным работам весь инструмент отмечен как есть.", color = Ok)
+            } else {
+                ui.missingTools.forEach { missing ->
+                    ToolHaveRow(
+                        tool = missing.tool,
+                        onToggle = { vm.setToolHave(missing.tool.id, true) },
+                    )
+                    Text(
+                        "нужен для: " + missing.neededFor.joinToString(", "),
+                        color = Muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 32.dp, bottom = 6.dp),
+                    )
+                }
             }
         }
         Panel {

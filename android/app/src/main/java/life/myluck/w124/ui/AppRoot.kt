@@ -3,6 +3,7 @@ package life.myluck.w124.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Handyman
 import androidx.compose.material.icons.outlined.LocalGasStation
@@ -48,6 +49,7 @@ fun AppRoot(vm: GarageViewModel) {
     var tab by remember { mutableStateOf(Tab.Home) }
     var settings by remember { mutableStateOf(false) }
     var fuelComposer by remember { mutableStateOf(false) }
+    var nodeId by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(ui.syncMessage) {
@@ -60,6 +62,7 @@ fun AppRoot(vm: GarageViewModel) {
             tab = Tab.Fuel
             fuelComposer = true
             settings = false
+            nodeId = null
             vm.markFuelOpened()
         }
     }
@@ -71,7 +74,23 @@ fun AppRoot(vm: GarageViewModel) {
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(if (settings) "Настройки" else tab.title)
+                        Text(
+                            when {
+                                settings -> "Настройки"
+                                nodeId != null -> ui.nodes.firstOrNull { it.node.id == nodeId }?.node?.title ?: "Работа"
+                                else -> tab.title
+                            },
+                        )
+                    },
+                    navigationIcon = {
+                        if (settings || nodeId != null) {
+                            IconButton(onClick = {
+                                settings = false
+                                nodeId = null
+                            }) {
+                                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад")
+                            }
+                        }
                     },
                     actions = {
                         if (!settings) {
@@ -91,7 +110,7 @@ fun AppRoot(vm: GarageViewModel) {
                 )
             },
             bottomBar = {
-                if (!settings && !fuelComposer) {
+                if (!settings && !fuelComposer && nodeId == null) {
                     NavigationBar {
                         Tab.entries.forEach { item ->
                             NavigationBarItem(
@@ -123,12 +142,25 @@ fun AppRoot(vm: GarageViewModel) {
                     )
                 } else if (garage == null) {
                     Text("Загрузка журнала…", Modifier.padding(24.dp))
+                } else if (nodeId != null) {
+                    val view = ui.nodes.firstOrNull { it.node.id == nodeId }
+                    if (view != null) {
+                        NodeDetailScreen(
+                            view = view,
+                            odometerKm = garage.odometer.km,
+                            vm = vm,
+                            onBack = { nodeId = null },
+                        )
+                    } else {
+                        Text("Задача не найдена.", Modifier.padding(24.dp))
+                    }
                 } else when (tab) {
                     Tab.Home -> HomeScreen(
                         garage = garage,
                         ui = ui,
                         vm = vm,
                         onFuel = { fuelComposer = true },
+                        onOpenNode = { nodeId = it },
                     )
                     Tab.Fuel -> FuelScreen(
                         garage = garage,
@@ -137,7 +169,7 @@ fun AppRoot(vm: GarageViewModel) {
                         onAdd = { fuelComposer = true },
                     )
                     Tab.Log -> LogbookScreen(garage, vm)
-                    Tab.Nodes -> NodesScreen(ui.nodes, garage.odometer.km, vm)
+                    Tab.Nodes -> NodesScreen(ui.nodes, onOpen = { nodeId = it })
                 }
             }
         }

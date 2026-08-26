@@ -11,7 +11,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -34,9 +37,11 @@ import java.time.LocalDate
 private enum class NodeFilter { ALL, URGENT, SERVICE }
 
 @Composable
-fun NodesScreen(nodes: List<NodeView>, odometerKm: Int, vm: GarageViewModel) {
+fun NodesScreen(
+    nodes: List<NodeView>,
+    onOpen: (String) -> Unit,
+) {
     var filter by remember { mutableStateOf(NodeFilter.ALL) }
-    var completeId by remember { mutableStateOf<String?>(null) }
     val visible = nodes.filter { view ->
         when (filter) {
             NodeFilter.ALL -> true
@@ -58,53 +63,37 @@ fun NodesScreen(nodes: List<NodeView>, odometerKm: Int, vm: GarageViewModel) {
             }
         }
         items(visible, key = { it.node.id }) { view ->
-            Panel {
+            Panel(onClick = { onOpen(view.node.id) }) {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
                         Text(view.node.title, fontWeight = FontWeight.SemiBold)
+                        Text(view.hangingRu, color = Muted, style = MaterialTheme.typography.bodySmall)
                         Text(view.reasonRu, color = Muted, style = MaterialTheme.typography.bodySmall)
+                        if (view.missingTools.isNotEmpty()) {
+                            Text(
+                                "нет: " + view.missingTools.joinToString(", ") { it.name },
+                                color = life.myluck.w124.ui.theme.Danger,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
-                    UrgencyChip(view.urgency)
-                }
-                view.node.lastDoneNote?.let {
-                    Spacer(Modifier.height(6.dp))
-                    Text(it, style = MaterialTheme.typography.bodyMedium)
-                }
-                view.node.howTo?.let {
-                    Spacer(Modifier.height(6.dp))
-                    Text(it, color = Muted, style = MaterialTheme.typography.bodySmall)
-                }
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    if (view.node.open || view.urgency != NodeUrgency.OK) {
-                        TextButton(onClick = { completeId = view.node.id }) { Text("Сделано") }
-                    } else {
-                        TextButton(onClick = { vm.reopenNode(view.node.id) }) { Text("Вернуть в очередь") }
+                    Column(horizontalAlignment = Alignment.End) {
+                        UrgencyChip(view.urgency)
+                        Icon(
+                            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                            contentDescription = "Открыть",
+                            tint = Muted,
+                        )
                     }
                 }
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
-
-    val editing = nodes.firstOrNull { it.node.id == completeId }
-    if (editing != null) {
-        CompleteNodeDialog(
-            title = editing.node.title,
-            odometerKm = odometerKm,
-            onDismiss = { completeId = null },
-            onSave = { date, km, note ->
-                vm.completeNode(editing.node.id, date, km, note)
-                completeId = null
-            },
-        )
-    }
 }
 
 @Composable
-private fun CompleteNodeDialog(
+fun CompleteNodeDialog(
     title: String,
     odometerKm: Int,
     onDismiss: () -> Unit,
