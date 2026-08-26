@@ -146,6 +146,10 @@ class GarageViewModel(
         _openJournal.value = false
     }
 
+    fun startNewInquiry() {
+        _activeInquiryId.value = null
+    }
+
     fun submitInquiry(date: String, odometer: Int, body: String) {
         val now = now()
         val logId = id()
@@ -231,22 +235,6 @@ class GarageViewModel(
 
     fun deleteFuel(id: String) {
         viewModelScope.launch { repository.deleteFuel(id, now()) }
-    }
-
-    fun addLog(date: String, title: String, body: String, tags: List<String>) {
-        val now = now()
-        viewModelScope.launch {
-            repository.addLog(
-                LogEntry(
-                    id = id(),
-                    date = date,
-                    title = title,
-                    body = body,
-                    tags = tags,
-                    updatedAt = now,
-                ),
-            )
-        }
     }
 
     fun updateOdometer(km: Int, date: String) {

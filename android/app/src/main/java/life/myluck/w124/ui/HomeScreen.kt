@@ -42,11 +42,11 @@ fun HomeScreen(
     ui: GarageUi,
     vm: GarageViewModel,
     onFuel: () -> Unit,
-    onJournal: () -> Unit,
     onOpenNode: (String) -> Unit,
 ) {
     var odoDialog by remember { mutableStateOf(false) }
     val urgent = NodeStatus.urgentWork(ui.nodes)
+    val fills = garage.fuel.filterNot { it.deleted }.sortedByDescending { it.odometer }
 
     Column(
         Modifier
@@ -74,7 +74,6 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Button(onClick = onFuel, modifier = Modifier.weight(1f)) { Text("Заправка") }
-            OutlinedButton(onClick = onJournal, modifier = Modifier.weight(1f)) { Text("Запись") }
             OutlinedButton(onClick = { odoDialog = true }, modifier = Modifier.weight(1f)) { Text("Пробег") }
         }
         ui.updates?.takeIf { it.updateAvailable }?.latest?.let { latest ->
@@ -83,7 +82,46 @@ fun HomeScreen(
                 Text("Настройки → Обновления. Можно поставить или откатиться.", color = Muted)
             }
         }
-        ConsumptionStrip(ui.report)
+
+        Panel {
+            JournalNoteForm(
+                currentOdometer = garage.odometer.km,
+                submitted = ui.inbox.firstOrNull { it.id == ui.activeInquiryId },
+                syncing = ui.syncing,
+                onSubmit = { date, km, body -> vm.submitInquiry(date, km, body) },
+                onSync = { vm.sync() },
+                onNewNote = { vm.startNewInquiry() },
+            )
+        }
+
+        Panel {
+            Text("Заправки", color = Muted, style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(4.dp))
+            val last = ui.report.last
+            Text(
+                if (last != null) {
+                    "Последний интервал ${l100(last)} л/100 км"
+                } else {
+                    "Расход появится после второй полной заправки. Квитанцию можно «Поделиться» в Бортжурнал."
+                },
+                color = Muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (fills.isEmpty()) {
+            Panel {
+                Text("Пока нет заправок. Кнопка «Заправка» сверху.", color = Muted)
+            }
+        } else {
+            fills.forEach { fill ->
+                FuelRow(
+                    fill = fill,
+                    intervalL100 = ui.report.intervals.associateBy { it.fillIds.lastOrNull() }[fill.id]?.litersPer100km,
+                    onDelete = { vm.deleteFuel(fill.id) },
+                )
+            }
+        }
+
         Text("Срочные работы", color = Muted, style = MaterialTheme.typography.labelLarge)
         Text("Нажмите задачу — внутри шаги, срок и инструмент.", color = Muted, style = MaterialTheme.typography.bodySmall)
         if (urgent.isEmpty()) {
@@ -135,13 +173,12 @@ fun HomeScreen(
                 }
             }
         }
-        Panel {
-            Text("Аналитика с компьютера", color = Muted, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                ui.analytics.ifBlank { "Файл analytics.md ещё пуст. После синхронизации здесь появится разбор." },
-                style = MaterialTheme.typography.bodyMedium,
-            )
+        if (ui.analytics.isNotBlank()) {
+            Panel {
+                Text("Аналитика с компьютера", color = Muted, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(8.dp))
+                Text(ui.analytics, style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 

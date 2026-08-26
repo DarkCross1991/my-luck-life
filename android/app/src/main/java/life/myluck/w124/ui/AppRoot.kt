@@ -6,7 +6,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Handyman
-import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Sync
@@ -37,7 +36,6 @@ import life.myluck.w124.ui.theme.Gold
 
 private enum class Tab(val title: String, val icon: ImageVector) {
     Home("Главная", Icons.Outlined.Speed),
-    Fuel("Топливо", Icons.Outlined.LocalGasStation),
     Log("Журнал", Icons.AutoMirrored.Outlined.MenuBook),
     Nodes("Узлы", Icons.Outlined.Handyman),
 }
@@ -68,7 +66,6 @@ fun AppRoot(vm: GarageViewModel) {
     }
     LaunchedEffect(ui.openFuel) {
         if (ui.openFuel) {
-            tab = Tab.Fuel
             fuelComposer = true
             journalComposer = false
             settings = false
@@ -171,16 +168,9 @@ fun AppRoot(vm: GarageViewModel) {
                         ui = ui,
                         vm = vm,
                         onFuel = { fuelComposer = true },
-                        onJournal = { vm.openJournal() },
                         onOpenNode = { nodeId = it },
                     )
-                    Tab.Fuel -> FuelScreen(
-                        garage = garage,
-                        report = ui.report,
-                        vm = vm,
-                        onAdd = { fuelComposer = true },
-                    )
-                    Tab.Log -> LogbookScreen(garage, ui, vm)
+                    Tab.Log -> LogbookScreen(garage, ui, onCompose = { vm.openJournal() })
                     Tab.Nodes -> NodesScreen(ui.nodes, onOpen = { nodeId = it })
                 }
             }
