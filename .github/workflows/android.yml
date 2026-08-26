@@ -3,6 +3,7 @@ name: Android
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -37,7 +38,7 @@ jobs:
           name: bortzhurnal-${{ steps.ver.outputs.name }}
           path: dist/${{ steps.ver.outputs.apk }}
       - name: Publish GitHub Release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.name }}
