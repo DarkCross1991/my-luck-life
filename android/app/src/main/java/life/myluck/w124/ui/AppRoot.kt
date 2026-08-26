@@ -47,6 +47,7 @@ fun AppRoot(vm: GarageViewModel) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(Tab.Home) }
     var settings by remember { mutableStateOf(false) }
+    var fuelComposer by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(ui.syncMessage) {
@@ -54,67 +55,103 @@ fun AppRoot(vm: GarageViewModel) {
         snackbar.showSnackbar(message)
         vm.consumeMessage()
     }
+    LaunchedEffect(ui.openFuel) {
+        if (ui.openFuel) {
+            tab = Tab.Fuel
+            fuelComposer = true
+            settings = false
+            vm.markFuelOpened()
+        }
+    }
 
-    Scaffold(
-        containerColor = Bg,
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(if (settings) "Настройки" else tab.title)
-                },
-                actions = {
-                    if (!settings) {
-                        IconButton(onClick = { vm.sync() }, enabled = !ui.syncing) {
-                            if (ui.syncing) {
-                                CircularProgressIndicator(Modifier.padding(8.dp), color = Gold, strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Outlined.Sync, contentDescription = "Синхронизация")
+    Box {
+        Scaffold(
+            containerColor = Bg,
+            snackbarHost = { SnackbarHost(snackbar) },
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(if (settings) "Настройки" else tab.title)
+                    },
+                    actions = {
+                        if (!settings) {
+                            IconButton(onClick = { vm.sync() }, enabled = !ui.syncing) {
+                                if (ui.syncing) {
+                                    CircularProgressIndicator(Modifier.padding(8.dp), color = Gold, strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Outlined.Sync, contentDescription = "Синхронизация")
+                                }
+                            }
+                            IconButton(onClick = { settings = true }) {
+                                Icon(Icons.Outlined.Settings, contentDescription = "Настройки")
                             }
                         }
-                        IconButton(onClick = { settings = true }) {
-                            Icon(Icons.Outlined.Settings, contentDescription = "Настройки")
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg),
+                )
+            },
+            bottomBar = {
+                if (!settings && !fuelComposer) {
+                    NavigationBar {
+                        Tab.entries.forEach { item ->
+                            NavigationBarItem(
+                                selected = tab == item,
+                                onClick = { tab = item },
+                                icon = { Icon(item.icon, contentDescription = item.title) },
+                                label = { Text(item.title) },
+                            )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg),
-            )
-        },
-        bottomBar = {
-            if (!settings) {
-                NavigationBar {
-                    Tab.entries.forEach { item ->
-                        NavigationBarItem(
-                            selected = tab == item,
-                            onClick = { tab = item },
-                            icon = { Icon(item.icon, contentDescription = item.title) },
-                            label = { Text(item.title) },
-                        )
-                    }
+                }
+            },
+        ) { padding ->
+            Box(Modifier.padding(padding)) {
+                val garage = ui.garage
+                if (settings) {
+                    SettingsScreen(
+                        snapshot = vm.settingsSnapshot(),
+                        hasToken = ui.hasToken,
+                        updates = ui.updates,
+                        onBack = { settings = false },
+                        onSave = { token, owner, repo, branch ->
+                            vm.saveGithub(token, owner, repo, branch)
+                            settings = false
+                        },
+                        onCheckUpdates = { vm.checkUpdates() },
+                        onInstall = { vm.installRelease(it) },
+                        onAllowInstalls = { vm.allowInstalls() },
+                    )
+                } else if (garage == null) {
+                    Text("Загрузка журнала…", Modifier.padding(24.dp))
+                } else when (tab) {
+                    Tab.Home -> HomeScreen(
+                        garage = garage,
+                        ui = ui,
+                        vm = vm,
+                        onFuel = { fuelComposer = true },
+                    )
+                    Tab.Fuel -> FuelScreen(
+                        garage = garage,
+                        report = ui.report,
+                        vm = vm,
+                        onAdd = { fuelComposer = true },
+                    )
+                    Tab.Log -> LogbookScreen(garage, vm)
+                    Tab.Nodes -> NodesScreen(ui.nodes, garage.odometer.km, vm)
                 }
             }
-        },
-    ) { padding ->
-        Box(Modifier.padding(padding)) {
-            val garage = ui.garage
-            if (settings) {
-                SettingsScreen(
-                    snapshot = vm.settingsSnapshot(),
-                    hasToken = ui.hasToken,
-                    onBack = { settings = false },
-                    onSave = { token, owner, repo, branch ->
-                        vm.saveGithub(token, owner, repo, branch)
-                        settings = false
-                    },
-                )
-            } else if (garage == null) {
-                Text("Загрузка журнала…", Modifier.padding(24.dp))
-            } else when (tab) {
-                Tab.Home -> HomeScreen(garage, ui, vm)
-                Tab.Fuel -> FuelScreen(garage, ui.report, vm)
-                Tab.Log -> LogbookScreen(garage, vm)
-                Tab.Nodes -> NodesScreen(ui.nodes, garage.odometer.km, vm)
-            }
+        }
+        val garage = ui.garage
+        if (fuelComposer && garage != null) {
+            FuelComposerScreen(
+                garage = garage,
+                ui = ui,
+                vm = vm,
+                onClose = {
+                    fuelComposer = false
+                    vm.clearDraft()
+                },
+            )
         }
     }
 }

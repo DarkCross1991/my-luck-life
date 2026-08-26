@@ -21,6 +21,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getString(BRANCH, "master").orEmpty().ifBlank { "master" }
         set(value) { prefs.edit().putString(BRANCH, value.trim()).apply() }
 
+    var lastTripType: String
+        get() = prefs.getString(TRIP, life.myluck.w124.core.TripType.MIXED).orEmpty()
+            .ifBlank { life.myluck.w124.core.TripType.MIXED }
+        set(value) { prefs.edit().putString(TRIP, value).apply() }
+
     val hasToken: Boolean get() = token.isNotBlank()
 
     private companion object {
@@ -28,5 +33,6 @@ class SettingsStore(context: Context) {
         const val OWNER = "owner"
         const val REPO = "repo"
         const val BRANCH = "branch"
+        const val TRIP = "trip"
     }
 }

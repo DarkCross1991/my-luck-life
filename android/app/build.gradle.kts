@@ -9,12 +9,22 @@ android {
     namespace = "life.myluck.w124"
     compileSdk = 35
 
+    val versionFile = rootProject.file("version.properties").readLines()
+        .mapNotNull { line ->
+            val t = line.trim()
+            if (t.isEmpty() || t.startsWith("#") || !t.contains("=")) null
+            else t.substringBefore("=") to t.substringAfter("=")
+        }
+        .toMap()
+    val verCode = versionFile.getValue("VERSION_CODE").toInt()
+    val verName = versionFile.getValue("VERSION_NAME")
+
     defaultConfig {
         applicationId = "life.myluck.w124"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = verCode
+        versionName = verName
     }
 
     buildTypes {
@@ -36,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -64,6 +75,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 }
 
 tasks.register<Copy>("copyDebugApk") {

@@ -58,6 +58,8 @@ data class FuelEntry(
     val tripType: String = TripType.MIXED,
     val station: String? = null,
     val note: String? = null,
+    val receiptText: String? = null,
+    val source: String = "manual",
     val deleted: Boolean = false,
     override val updatedAt: String,
 ) : DatedId

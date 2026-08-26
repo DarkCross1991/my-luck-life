@@ -35,8 +35,12 @@ import life.myluck.w124.ui.theme.Muted
 import java.time.LocalDate
 
 @Composable
-fun HomeScreen(garage: GarageState, ui: GarageUi, vm: GarageViewModel) {
-    var addFuel by remember { mutableStateOf(false) }
+fun HomeScreen(
+    garage: GarageState,
+    ui: GarageUi,
+    vm: GarageViewModel,
+    onFuel: () -> Unit,
+) {
     var odoDialog by remember { mutableStateOf(false) }
     val nearest = NodeStatus.nearest(garage)
 
@@ -62,8 +66,14 @@ fun HomeScreen(garage: GarageState, ui: GarageUi, vm: GarageViewModel) {
             color = Muted,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { addFuel = true }) { Text("Заправка") }
+            Button(onClick = onFuel) { Text("Заправка") }
             OutlinedButton(onClick = { odoDialog = true }) { Text("Пробег") }
+        }
+        ui.updates?.takeIf { it.updateAvailable }?.latest?.let { latest ->
+            Panel {
+                Text("Доступна версия ${latest.versionName}", fontWeight = FontWeight.Medium, color = Gold)
+                Text("Настройки → Обновления. Можно поставить или откатиться.", color = Muted)
+            }
         }
         ConsumptionStrip(ui.report)
         Panel {
@@ -97,17 +107,6 @@ fun HomeScreen(garage: GarageState, ui: GarageUi, vm: GarageViewModel) {
         }
     }
 
-    if (addFuel) {
-        FuelEditorDialog(
-            title = "Новая заправка",
-            initialOdometer = garage.odometer.km,
-            onDismiss = { addFuel = false },
-            onSave = { date, odo, liters, full, trip, price, total, note ->
-                vm.addFuel(date, odo, liters, full, trip, price, total, note)
-                addFuel = false
-            },
-        )
-    }
     if (odoDialog) {
         OdometerDialog(
             current = garage.odometer.km,

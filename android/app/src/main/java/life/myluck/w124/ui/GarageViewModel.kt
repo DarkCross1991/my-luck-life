@@ -1,12 +1,16 @@
 package life.myluck.w124.ui
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import life.myluck.w124.core.AppRelease
 import life.myluck.w124.core.FuelAnalytics
 import life.myluck.w124.core.FuelEntry
 import life.myluck.w124.core.FuelReport
@@ -14,10 +18,18 @@ import life.myluck.w124.core.GarageState
 import life.myluck.w124.core.LogEntry
 import life.myluck.w124.core.NodeStatus
 import life.myluck.w124.core.NodeView
-import life.myluck.w124.data.GarageRepository
-import life.myluck.w124.sync.SettingsStore
+import life.myluck.w124.core.ParsedReceipt
+import life.myluck.w124.core.ReceiptParser
+import life.myluck.w124.data.AppContainer
+import life.myluck.w124.update.UpdateUi
 import java.time.Instant
 import java.util.UUID
+
+data class ReceiptDraft(
+    val text: String = "",
+    val parsed: ParsedReceipt = ParsedReceipt(),
+    val previewPath: String? = null,
+)
 
 data class GarageUi(
     val garage: GarageState? = null,
@@ -27,32 +39,62 @@ data class GarageUi(
     val syncing: Boolean = false,
     val syncMessage: String? = null,
     val hasToken: Boolean = false,
+    val receiptDraft: ReceiptDraft? = null,
+    val receiptBusy: Boolean = false,
+    val openFuel: Boolean = false,
+    val lastTripType: String = life.myluck.w124.core.TripType.MIXED,
+    val updates: UpdateUi? = null,
 )
 
 class GarageViewModel(
-    private val repository: GarageRepository,
-    private val settings: SettingsStore,
+    private val container: AppContainer,
 ) : ViewModel() {
+    private val repository = container.repository
+    private val settings = container.settings
+    private val _draft = MutableStateFlow<ReceiptDraft?>(null)
+    private val _receiptBusy = MutableStateFlow(false)
+    private val _openFuel = MutableStateFlow(false)
 
     val ui: StateFlow<GarageUi> = combine(
-        repository.state,
-        repository.analytics,
-        repository.syncing,
-        repository.syncMessage,
-    ) { state, analytics, syncing, message ->
+        combine(
+            repository.state,
+            repository.analytics,
+            repository.syncing,
+            repository.syncMessage,
+        ) { state, analytics, syncing, message ->
+            Quad(state, analytics, syncing, message)
+        },
+        combine(_draft, _receiptBusy, _openFuel, container.updates.ui) { draft, busy, open, updates ->
+            Quad(draft, busy, open, updates)
+        },
+    ) { garage, extra ->
+        val state = garage.a
         GarageUi(
             garage = state,
             report = FuelAnalytics.report(state?.fuel.orEmpty()),
             nodes = state?.let { NodeStatus.views(it) }.orEmpty(),
-            analytics = analytics,
-            syncing = syncing,
-            syncMessage = message,
+            analytics = garage.b,
+            syncing = garage.c,
+            syncMessage = garage.d,
             hasToken = settings.hasToken,
+            receiptDraft = extra.a,
+            receiptBusy = extra.b,
+            openFuel = extra.c,
+            lastTripType = settings.lastTripType,
+            updates = extra.d,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GarageUi())
 
     init {
         viewModelScope.launch { repository.load() }
+        viewModelScope.launch { container.updates.refresh() }
+        viewModelScope.launch {
+            container.shareBus.incoming.collect { share ->
+                if (share == null) return@collect
+                importShare(share.uri, share.mime, share.text)
+                container.shareBus.consume()
+            }
+        }
     }
 
     fun sync() {
@@ -61,6 +103,18 @@ class GarageViewModel(
 
     fun consumeMessage() {
         repository.clearMessage()
+    }
+
+    fun markFuelOpened() {
+        _openFuel.value = false
+    }
+
+    fun clearDraft() {
+        _draft.value = null
+    }
+
+    fun importReceipt(context: Context, uri: Uri, mime: String?) {
+        viewModelScope.launch { importShare(uri, mime, null) }
     }
 
     fun addFuel(
@@ -72,8 +126,11 @@ class GarageViewModel(
         pricePerLiter: Double?,
         totalCost: Double?,
         note: String?,
+        station: String? = null,
+        receiptText: String? = null,
     ) {
         val now = now()
+        settings.lastTripType = tripType
         viewModelScope.launch {
             repository.addFuel(
                 FuelEntry(
@@ -85,10 +142,14 @@ class GarageViewModel(
                     tripType = tripType,
                     pricePerLiter = pricePerLiter,
                     totalCost = totalCost,
+                    station = station,
                     note = note,
+                    receiptText = receiptText,
+                    source = if (receiptText.isNullOrBlank()) "manual" else "receipt",
                     updatedAt = now,
                 ),
             )
+            _draft.value = null
         }
     }
 
@@ -130,6 +191,23 @@ class GarageViewModel(
         settings.repo = repo
         settings.branch = branch
         sync()
+        viewModelScope.launch { container.updates.refresh() }
+    }
+
+    fun checkUpdates() {
+        viewModelScope.launch { container.updates.refresh() }
+    }
+
+    fun installRelease(release: AppRelease) {
+        viewModelScope.launch { container.updates.downloadAndInstall(release) }
+    }
+
+    fun allowInstalls() {
+        container.updates.openInstallPermission()
+    }
+
+    fun consumeUpdateMessage() {
+        container.updates.consumeMessage()
     }
 
     fun settingsSnapshot(): GithubSettings = GithubSettings(
@@ -139,9 +217,33 @@ class GarageViewModel(
         branch = settings.branch,
     )
 
+    private suspend fun importShare(uri: Uri?, mime: String?, text: String?) {
+        _receiptBusy.value = true
+        _openFuel.value = true
+        try {
+            val result = container.receipts.read(uri, mime, text)
+            val parsed = ReceiptParser.parse(result.text)
+            _draft.value = ReceiptDraft(
+                text = result.text,
+                parsed = parsed,
+                previewPath = result.previewPath,
+            )
+        } catch (e: Exception) {
+            _draft.value = ReceiptDraft(
+                text = e.message ?: "Не удалось прочитать квитанцию",
+                parsed = ParsedReceipt(),
+                previewPath = null,
+            )
+        } finally {
+            _receiptBusy.value = false
+        }
+    }
+
     private fun now(): String = Instant.now().toString()
     private fun id(): String = UUID.randomUUID().toString()
 }
+
+private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 
 data class GithubSettings(
     val token: String,
