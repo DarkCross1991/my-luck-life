@@ -69,6 +69,9 @@ fun HomeScreen(
             "на ${dateRu(garage.odometer.recordedAt)} · ${garage.vehicle.engine} · ${garage.vehicle.transmission}",
             color = Muted,
         )
+        ui.lastSyncMessage?.let { msg ->
+            Text(msg, color = Muted, style = MaterialTheme.typography.bodySmall)
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),

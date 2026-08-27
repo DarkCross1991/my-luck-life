@@ -138,6 +138,8 @@ fun AppRoot(vm: GarageViewModel) {
                         snapshot = vm.settingsSnapshot(),
                         hasToken = ui.hasToken,
                         updates = ui.updates,
+                        lastSyncMessage = ui.lastSyncMessage,
+                        syncBranch = ui.syncBranch,
                         onBack = { settings = false },
                         onSave = { token, owner, repo, branch ->
                             vm.saveGithub(token, owner, repo, branch)

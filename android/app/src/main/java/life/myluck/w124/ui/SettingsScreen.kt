@@ -27,8 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import life.myluck.w124.BuildConfig
 import life.myluck.w124.core.AppRelease
+import life.myluck.w124.core.SyncPolicy
 import life.myluck.w124.update.UpdateUi
+import life.myluck.w124.ui.theme.Danger
 import life.myluck.w124.ui.theme.Gold
 import life.myluck.w124.ui.theme.Muted
 
@@ -37,6 +40,8 @@ fun SettingsScreen(
     snapshot: GithubSettings,
     hasToken: Boolean,
     updates: UpdateUi?,
+    lastSyncMessage: String?,
+    syncBranch: String,
     onBack: () -> Unit,
     onSave: (token: String, owner: String, repo: String, branch: String) -> Unit,
     onCheckUpdates: () -> Unit,
@@ -57,8 +62,21 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Приложение", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Сейчас ${BuildConfig.VERSION_NAME} (сборка ${BuildConfig.VERSION_CODE})",
+            fontWeight = FontWeight.Medium,
+        )
+        lastSyncMessage?.let {
+            Text(it, color = if (it.contains("не ") || it.contains("отказ") || it.contains("нет ")) Danger else Muted)
+        }
+        if (syncBranch == "master") {
+            Text(
+                "Ветка master — не та: там фото тетрадки, бортжурнал в ${SyncPolicy.DATA_BRANCH}.",
+                color = Danger,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         if (updates != null) {
-            Text("Сейчас ${updates.currentName} (сборка ${updates.currentCode})", fontWeight = FontWeight.Medium)
             updates.message?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
             if (!updates.canInstallPackages) {
                 Text("Нужно разрешить установку из Бортжурнала — иначе обновление не поставится.", color = Gold)
@@ -68,7 +86,7 @@ fun SettingsScreen(
             }
             Text(
                 "Если установщик пишет «не удалось» — виновата одноразовая подпись старых CI-сборок. " +
-                    "Синхронизируйте журнал, удалите Бортжурнал и поставьте 0.4.0 с GitHub Releases. " +
+                    "Синхронизируйте журнал, удалите Бортжурнал и поставьте ${BuildConfig.VERSION_NAME} с GitHub Releases. " +
                     "Данные в git, с телефона пропадут только локальные несинхронизированные записи. " +
                     "После этого обновления ставятся поверх.",
                 color = Muted,
@@ -136,6 +154,11 @@ fun SettingsScreen(
         OutlinedTextField(value = owner, onValueChange = { owner = it }, label = { Text("Owner") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         OutlinedTextField(value = repo, onValueChange = { repo = it }, label = { Text("Репозиторий") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         OutlinedTextField(value = branch, onValueChange = { branch = it }, label = { Text("Ветка") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        Text(
+            "Бортжурнал живёт в ветке ${SyncPolicy.DATA_BRANCH}. На master только фото тетрадки — туда журнал не пишется.",
+            color = Muted,
+            style = MaterialTheme.typography.bodySmall,
+        )
         Text(
             if (hasToken) "Токен задан. После сохранения уедут state.json, tools.json и jobs.json в data/w124/."
             else "Без токена журнал на телефоне, обновления приложения всё равно проверяются.",

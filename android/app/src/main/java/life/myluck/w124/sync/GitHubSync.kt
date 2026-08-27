@@ -73,9 +73,9 @@ class GitHubSync(private val settings: SettingsStore) {
             json.decodeFromString(ContentResponse.serializer(), response.body).message
         }.getOrNull()
         return when (response.code) {
-            401, 403 -> "GitHub отказал в доступе. Проверьте токен (contents: read/write)."
-            404 -> "Файл или репозиторий не найден."
-            409 -> "Конфликт записи, повторите синхронизацию."
+            401, 403 -> "GitHub отказал в доступе. Проверьте токен (contents: read/write) и что репозиторий ${settings.owner}/${settings.repo}."
+            404 -> "Не найдено: ветка «${settings.branch}», файл или нет прав. Бортжурнал сейчас в ${life.myluck.w124.core.SyncPolicy.DATA_BRANCH}."
+            409, 422 -> "Конфликт записи на GitHub. Нажмите синхронизацию ещё раз."
             else -> api ?: "GitHub HTTP ${response.code}"
         }
     }

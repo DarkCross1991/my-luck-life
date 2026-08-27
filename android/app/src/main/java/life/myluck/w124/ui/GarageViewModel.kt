@@ -48,6 +48,8 @@ data class GarageUi(
     val openFuel: Boolean = false,
     val lastTripType: String = life.myluck.w124.core.TripType.MIXED,
     val updates: UpdateUi? = null,
+    val lastSyncMessage: String? = null,
+    val syncBranch: String = life.myluck.w124.core.SyncPolicy.DATA_BRANCH,
     val missingTools: List<MissingTool> = emptyList(),
     val inbox: List<InboxItem> = emptyList(),
     val openJournal: Boolean = false,
@@ -64,6 +66,7 @@ class GarageViewModel(
     private val _openFuel = MutableStateFlow(false)
     private val _openJournal = MutableStateFlow(false)
     private val _activeInquiryId = MutableStateFlow<String?>(null)
+    private val _settingsRev = MutableStateFlow(0)
 
     val ui: StateFlow<GarageUi> = combine(
         combine(
@@ -84,7 +87,7 @@ class GarageViewModel(
         ) { jobs, inbox, draft, busy, open ->
             Penta(jobs, inbox, draft, busy, open)
         },
-        combine(_openJournal, _activeInquiryId, container.updates.ui) { journal, active, updates ->
+        combine(_openJournal, _activeInquiryId, container.updates.ui, _settingsRev) { journal, active, updates, _ ->
             Triple(journal, active, updates)
         },
     ) { garage, extra, flags ->
@@ -106,12 +109,14 @@ class GarageViewModel(
             openFuel = extra.e,
             lastTripType = settings.lastTripType,
             updates = flags.third,
+            lastSyncMessage = settings.lastSyncMessage ?: garage.d,
+            syncBranch = settings.branch,
             missingTools = NodeStatus.missingTools(nodes),
             inbox = inbox,
             openJournal = flags.first,
             activeInquiryId = flags.second,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GarageUi())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, GarageUi())
 
     init {
         viewModelScope.launch { repository.load() }
@@ -126,7 +131,10 @@ class GarageViewModel(
     }
 
     fun sync() {
-        viewModelScope.launch { repository.sync() }
+        viewModelScope.launch {
+            repository.sync()
+            _settingsRev.value++
+        }
     }
 
     fun consumeMessage() {
@@ -258,6 +266,7 @@ class GarageViewModel(
         settings.owner = owner
         settings.repo = repo
         settings.branch = branch
+        _settingsRev.value++
         sync()
         viewModelScope.launch { container.updates.refresh() }
     }

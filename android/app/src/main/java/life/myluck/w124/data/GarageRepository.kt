@@ -14,6 +14,7 @@ import life.myluck.w124.core.InboxBook
 import life.myluck.w124.core.InboxItem
 import life.myluck.w124.core.JobBook
 import life.myluck.w124.core.LogEntry
+import life.myluck.w124.core.SyncPolicy
 import life.myluck.w124.core.ToolInventory
 import life.myluck.w124.sync.GitHubSync
 import life.myluck.w124.sync.SettingsStore
@@ -116,7 +117,9 @@ class GarageRepository(
 
     suspend fun sync(pushMessage: String = "w124: синхронизация бортжурнала") = withContext(Dispatchers.IO) {
         if (!settings.hasToken) {
-            _syncMessage.value = "Токен GitHub не задан — журнал живёт только на телефоне."
+            val text = "Токен GitHub не задан — журнал живёт только на телефоне."
+            _syncMessage.value = text
+            settings.lastSyncMessage = text
             return@withContext
         }
         mutex.withLock {
@@ -136,12 +139,15 @@ class GarageRepository(
                 _syncMessage.value = if (pushed) {
                     "Синхронизировано с GitHub (${settings.branch})."
                 } else {
-                    "Уже актуально с GitHub."
+                    "Уже актуально с GitHub (${settings.branch})."
                 }
+                settings.lastSyncMessage = _syncMessage.value
             } catch (e: SyncException) {
                 _syncMessage.value = e.message
+                settings.lastSyncMessage = e.message
             } catch (e: Exception) {
                 _syncMessage.value = e.message ?: "Синхронизация не удалась"
+                settings.lastSyncMessage = _syncMessage.value
             } finally {
                 _syncing.value = false
             }
@@ -150,6 +156,9 @@ class GarageRepository(
 
     private fun syncState(localState: GarageState, pushMessage: String): Boolean {
         val remote = github.fetch("data/w124/state.json")
+        if (remote == null) {
+            SyncPolicy.missingGarageHint(settings.branch)?.let { throw SyncException(it) }
+        }
         val merged = if (remote == null) {
             localState
         } else {
