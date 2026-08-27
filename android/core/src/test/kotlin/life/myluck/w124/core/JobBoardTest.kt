@@ -94,7 +94,31 @@ class JobBoardTest {
         val log = state.logbook.first { it.id == "log-ovp-2026-08-27" }
         assertTrue(log.body.contains("A2015403245"))
         assertTrue(jobs.jobs.any { it.nodeId == "ovp-relay" })
+        assertFalse(ovp.open)
         assertTrue(state.logbook.any { it.id == "log-ovp-rpm-2026-08-27" && it.body.contains("5000") })
+    }
+
+    @Test
+    fun diagnosticBoardSplitsRunningSymptoms() {
+        val (state, jobs, tools) = load()
+        assertTrue(state.deletedIds.contains("running-diagnosis"))
+        assertFalse(state.nodes.any { it.id == "running-diagnosis" })
+        val ids = listOf("fuel-smell", "idle-valve", "rpm-drive", "abs")
+        val views = NodeStatus.views(state, today, jobs.jobs, tools.tools)
+        ids.forEach { id ->
+            val node = state.nodes.first { it.id == id }
+            assertEquals("urgent", node.priority)
+            assertTrue(node.open)
+            val job = jobs.jobs.first { it.nodeId == id }
+            assertTrue(job.what.isNotBlank())
+            assertTrue(job.steps.size >= 2)
+            assertTrue(job.toolIds.isNotEmpty())
+            val view = views.first { it.node.id == id }
+            assertEquals(NodeUrgency.URGENT, view.urgency)
+            assertTrue(view.required.isNotEmpty())
+        }
+        assertFalse(state.nodes.first { it.id == "ovp-relay" }.open)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "ovp-relay" }.urgency)
     }
 
     @Test
