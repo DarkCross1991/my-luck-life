@@ -1,0 +1,50 @@
+name: Android
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - name: Versions
+        id: ver
+        run: |
+          CODE=$(sed -n 's/^VERSION_CODE=//p' android/version.properties | tr -d '[:space:]')
+          NAME=$(sed -n 's/^VERSION_NAME=//p' android/version.properties | tr -d '[:space:]')
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "apk=bortzhurnal-$CODE-$NAME.apk" >> "$GITHUB_OUTPUT"
+      - name: Core tests and debug APK
+        working-directory: android
+        run: ./gradlew :core:test :app:assembleDebug --stacktrace --no-daemon
+      - name: Name APK
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/*.apk "dist/${{ steps.ver.outputs.apk }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bortzhurnal-${{ steps.ver.outputs.name }}
+          path: dist/${{ steps.ver.outputs.apk }}
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.name }}
+          name: Бортжурнал ${{ steps.ver.outputs.name }}
+          body_path: data/app/RELEASE_NOTES.md
+          files: dist/${{ steps.ver.outputs.apk }}
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          make_latest: true
