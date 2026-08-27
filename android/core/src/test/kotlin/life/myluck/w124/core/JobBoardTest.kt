@@ -83,6 +83,21 @@ class JobBoardTest {
     }
 
     @Test
+    fun ovpRelayPartNumberIsRecorded() {
+        val (state, jobs, tools) = load()
+        val ovp = state.nodes.first { it.id == "ovp-relay" }
+        assertTrue(ovp.lastDoneNote!!.contains("A2015403245"))
+        val part = tools.tools.first { it.id == "ovp-relay" }
+        assertTrue(part.have)
+        assertFalse(part.isTool)
+        assertTrue(part.note!!.contains("A2015403245"))
+        val log = state.logbook.first { it.id == "log-ovp-2026-08-27" }
+        assertTrue(log.body.contains("A2015403245"))
+        assertTrue(jobs.jobs.any { it.nodeId == "ovp-relay" })
+        assertTrue(state.logbook.any { it.id == "log-ovp-rpm-2026-08-27" && it.body.contains("5000") })
+    }
+
+    @Test
     fun daysRuRussianPlural() {
         assertEquals("1 день", NodeStatus.daysRu(1))
         assertEquals("2 дня", NodeStatus.daysRu(2))
