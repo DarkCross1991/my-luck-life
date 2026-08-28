@@ -103,7 +103,7 @@ class JobBoardTest {
         val (state, jobs, tools) = load()
         assertTrue(state.deletedIds.contains("running-diagnosis"))
         assertFalse(state.nodes.any { it.id == "running-diagnosis" })
-        val ids = listOf("fuel-smell", "idle-valve", "rpm-drive", "abs")
+        val ids = listOf("idle-valve", "rpm-drive", "abs")
         val views = NodeStatus.views(state, today, jobs.jobs, tools.tools)
         ids.forEach { id ->
             val node = state.nodes.first { it.id == id }
@@ -117,8 +117,13 @@ class JobBoardTest {
             assertEquals(NodeUrgency.URGENT, view.urgency)
             assertTrue(view.required.isNotEmpty())
         }
+        assertFalse(state.nodes.first { it.id == "fuel-smell" }.open)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "fuel-smell" }.urgency)
         assertFalse(state.nodes.first { it.id == "ovp-relay" }.open)
         assertEquals(NodeUrgency.OK, views.first { it.node.id == "ovp-relay" }.urgency)
+        assertEquals("Педаль в Drive", state.nodes.first { it.id == "rpm-drive" }.title)
+        assertTrue(state.logbook.any { it.id == "log-hot-drive-2026-08-28" })
+        assertTrue(state.logbook.any { it.id == "log-exhaust-smell-2026-08-28" })
     }
 
     @Test
