@@ -124,6 +124,10 @@ class JobBoardTest {
         assertEquals("Педаль в Drive", state.nodes.first { it.id == "rpm-drive" }.title)
         assertTrue(state.logbook.any { it.id == "log-hot-drive-2026-08-28" })
         assertTrue(state.logbook.any { it.id == "log-exhaust-smell-2026-08-28" })
+        val beltJob = jobs.jobs.first { it.nodeId == "accessory-belt-tensioner" }
+        assertTrue(beltJob.what.contains("завален"))
+        assertTrue(beltJob.steps.any { it.contains("Febi 06418") })
+        assertTrue(beltJob.steps.any { it.contains("6PK1885") })
     }
 
     @Test
