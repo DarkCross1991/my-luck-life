@@ -131,6 +131,29 @@ class JobBoardTest {
     }
 
     @Test
+    fun airAndCabinFiltersAreRecorded() {
+        val (state, jobs, tools) = load()
+        val air = tools.tools.first { it.id == "air-filter" }
+        assertFalse(air.have)
+        assertFalse(air.isTool)
+        assertTrue(air.note!!.contains("LX 61"))
+        assertTrue(air.note!!.contains("A003 094 38 04"))
+        val cabin = tools.tools.first { it.id == "cabin-filter" }
+        assertFalse(cabin.have)
+        assertTrue(cabin.note!!.contains("нет"))
+        assertTrue(cabin.note!!.contains("A124 830 00 18"))
+        assertTrue(state.logbook.any { it.id == "log-filters-2026-08-29" })
+        val job = jobs.jobs.first { it.nodeId == "air-filter" }
+        assertTrue(job.steps.size >= 2)
+        assertTrue(job.toolIds.contains("air-filter"))
+        assertTrue(job.steps.any { it.contains("не покупать") })
+        val node = state.nodes.first { it.id == "air-filter" }
+        assertTrue(node.open)
+        val views = NodeStatus.views(state, today, jobs.jobs, tools.tools)
+        assertEquals(NodeUrgency.OVERDUE, views.first { it.node.id == "air-filter" }.urgency)
+    }
+
+    @Test
     fun daysRuRussianPlural() {
         assertEquals("1 день", NodeStatus.daysRu(1))
         assertEquals("2 дня", NodeStatus.daysRu(2))
