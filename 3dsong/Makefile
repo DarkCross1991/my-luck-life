@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------
-# 3DSong 0.02 — Nintendo 3DS XL (Old) music player
+# 3DSong 0.3 — Nintendo 3DS XL (Old) music player
 # Requires: devkitARM, libctru, citro2d, citro3d, and 3ds portlibs:
 #   pacman -S 3ds-mpg123 3ds-libvorbisidec 3ds-libogg 3ds-opusfile 3ds-libopus 3ds-libflac
 # Optional: 3ds-faad2  (add -DHAVE_FAAD -lfaad)
@@ -25,7 +25,7 @@ GFXBUILD	:=	$(BUILD)
 ROMFS		:=	romfs
 
 APP_TITLE	:=	3DSong
-APP_DESCRIPTION	:=	Tube amp music player 0.02
+APP_DESCRIPTION	:=	Tube amp music player 0.3
 APP_AUTHOR	:=	3DSong
 ICON		:=	meta/icon.png
 

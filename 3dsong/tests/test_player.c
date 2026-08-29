@@ -94,13 +94,17 @@ int main(void)
         fprintf(stderr, "FAIL: viz idle\n");
         return 1;
     }
+    /* 0.3: software volume is unused — console volume only, app stays at max. */
     player_set_volume(&p, 0);
     n = player_fill_s16_stereo(&p, buf, 1024);
+    peak = 0;
     for (i = 0; i < n * 2; i++) {
-        if (buf[i] != 0) {
-            fprintf(stderr, "FAIL: volume 0\n");
-            return 1;
-        }
+        int a = buf[i] < 0 ? -buf[i] : buf[i];
+        if (a > peak) peak = a;
+    }
+    if (peak < 1000) {
+        fprintf(stderr, "FAIL: software mute still applied (peak %d)\n", peak);
+        return 1;
     }
     player_seek_frac(&p, 0.5f);
     if (player_progress(&p) < 0.45f || player_progress(&p) > 0.55f) {

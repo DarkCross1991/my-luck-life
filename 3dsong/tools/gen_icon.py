@@ -42,7 +42,7 @@ def banner(path: Path) -> None:
     d.line((194, 59, 216, 36), fill=(255, 200, 80), width=2)
     for i, x in enumerate((118, 128, 138, 148)):
         d.ellipse((x, 36, x + 10, 70), fill=(255, 110 + i * 20, 30))
-    d.text((20, 100), "3DSong  0.02", font=_font(16), fill=(232, 196, 96))
+    d.text((20, 100), "3DSong  0.3", font=_font(16), fill=(232, 196, 96))
     d.text((168, 104), "O3DS XL", font=_font(11), fill=(180, 150, 90))
     path.parent.mkdir(parents=True, exist_ok=True)
     im.save(path)

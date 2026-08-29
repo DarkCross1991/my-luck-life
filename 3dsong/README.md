@@ -1,13 +1,14 @@
-# 3DSong 0.02 — Nintendo 3DS XL (Old)
+# 3DSong 0.3 — Nintendo 3DS XL (Old)
 
 Dual-screen music player: **tube-amp visualization on the top screen**, **all controls on the bottom touch screen**.
 
 ## What this version does
 
 - Plays popular formats from the SD card: **WAV, AIFF, MP3, OGG/Vorbis, FLAC, Opus, AAC (ADTS)**
-- Simple 3-band equalizer: Bass / Mid / Treble (±12 dB)
+- Folder browser on the bottom screen (`sdmc:/Music`, `..`, subfolders, songs)
+- 3-band equalizer on its own screen: Bass / Mid / Treble (±12 dB)
 - Top 400×240: analog VU meters, EL34 glow, CRT oscilloscope
-- Bottom 320×240: transport, volume, EQ, playlist (stylus / face buttons)
+- Bottom 320×240: transport, EQ / FLAT, folder + song list (no volume slider — console volume only)
 - Tuned for **Old 3DS / 3DS XL** clocks (decode on a background thread, IIR EQ, no heavy FFT)
 
 Put files in `sdmc:/Music` or `sdmc:/3ds/3DSong`.
@@ -16,19 +17,21 @@ Put files in `sdmc:/Music` or `sdmc:/3ds/3DSong`.
 
 | Input | Action |
 | --- | --- |
-| Touch / A | Play, pause, pick a track |
-| B | Stop |
-| L / R | Previous / next |
-| D-Pad | Playlist + seek |
-| Circle Pad Y | Volume |
+| Touch / A | Play, pause, open folder, pick a track |
+| EQ button | Equalizer screen |
+| BACK / B | Close EQ, or stop |
+| FLAT / SELECT | Reset EQ |
+| L / R | Previous / next file in this folder |
+| D-Pad | Folder list + seek |
 | Y | Shuffle |
 | X | Repeat off → one → all |
-| SELECT | EQ flat |
 | START | Exit to Homebrew Launcher |
+
+Volume is the 3DS slider / headphones. The app always plays at full level.
 
 Headphones keep playing with the lid closed (APT).
 
-## Готовый пакет 0.02
+## Готовый пакет 0.3
 
 В `dist/` уже лежат собранные файлы:
 

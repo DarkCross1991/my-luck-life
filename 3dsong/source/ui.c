@@ -1,6 +1,7 @@
 #include "ui.h"
 #include "colors.h"
 #include "layout.h"
+#include "ui_layout.h"
 #include "version.h"
 
 #ifdef __3DS__
@@ -14,10 +15,12 @@
 #endif
 
 static C2D_TextBuf g_textbuf;
+static int g_eq_screen;
 
 void ui_init(void)
 {
     g_textbuf = C2D_TextBufNew(8192);
+    g_eq_screen = 0;
 }
 
 void ui_fini(void)
@@ -146,44 +149,6 @@ void ui_draw_top(const Player *p)
     ui_draw_text(format_name(p->current_format), 300, 202, 0.36f, COL_ACCENT, 0);
 }
 
-/* Bottom screen hit-test layout — keep in sync with preview/app.js */
-#define HDR_H 18
-#define PLAY_X 52
-#define PLAY_Y 66
-#define PLAY_W 50
-#define PLAY_H 36
-#define PREV_X 10
-#define PREV_Y 70
-#define PREV_W 36
-#define PREV_H 30
-#define NEXT_X 108
-#define NEXT_Y 70
-#define NEXT_W 36
-#define NEXT_H 30
-#define STOP_X 150
-#define STOP_Y 70
-#define STOP_W 28
-#define STOP_H 30
-#define VOL_X 186
-#define VOL_Y 76
-#define VOL_W 124
-#define VOL_H 18
-#define SEEK_X 10
-#define SEEK_Y 50
-#define SEEK_W 300
-#define SEEK_H 12
-#define EQ_Y 110
-#define EQ_H 48
-#define EQ_X0 18
-#define EQ_SLOT 70
-#define FLAT_X 246
-#define FLAT_Y 118
-#define FLAT_W 62
-#define FLAT_H 32
-#define LIST_Y 164
-#define LIST_H 72
-#define ROW_H 18
-
 static int in_box(int px, int py, int x, int y, int w, int h)
 {
     return px >= x && px < x + w && py >= y && py < y + h;
@@ -218,41 +183,97 @@ static void draw_icon_play(float x, float y, int playing)
     }
 }
 
-static void draw_icon_stop(float x, float y)
+static void draw_icon_stop(float x, float y, float w, float h)
 {
-    rect(x + 8, y + 8, 12, 12, COL_TEXT);
+    float s = 12.0f;
+    rect(x + (w - s) * 0.5f, y + (h - s) * 0.5f, s, s, COL_TEXT);
 }
 
-void ui_draw_bottom(const Player *p, const Library *lib)
+static void trunc_left(const char *path, char *out, size_t n, int max_chars)
 {
-    int i, vis;
-    char line[128];
-    float prog = player_progress(p);
-    int volw;
+    size_t len;
+    if (!path || !out || n == 0) return;
+    len = strlen(path);
+    if (len <= (size_t)max_chars || max_chars <= 3) {
+        strncpy(out, path, n - 1);
+        out[n - 1] = 0;
+        return;
+    }
+    snprintf(out, n, "...%s", path + (len - (size_t)(max_chars - 3)));
+}
+
+static void play_or_activate(Player *p, Library *lib)
+{
+    if (library_is_file(lib, lib->cursor) &&
+        p->decoder.open &&
+        p->track_index == lib->cursor) {
+        player_toggle(p);
+        return;
+    }
+    player_activate(p, lib, lib->cursor);
+}
+
+int ui_eq_screen_open(void)
+{
+    return g_eq_screen;
+}
+
+int ui_handle_back(void)
+{
+    if (g_eq_screen) {
+        g_eq_screen = 0;
+        return 1;
+    }
+    return 0;
+}
+
+static void draw_eq_screen(const Player *p)
+{
+    int i;
+    char line[32];
 
     rect(0, 0, BOT_W, BOT_H, COL_BOT_BG);
-    rect(0, 0, BOT_W, HDR_H, COL_WOOD_DK);
-    ui_draw_text(THREEDSONG_TITLE, 6, 2, 0.42f, COL_GOLD, 0);
-    ui_draw_text(p->shuffle ? "SHUF" : "SEQ", 210, 3, 0.32f, p->shuffle ? COL_ACCENT : COL_TEXT_DIM, 0);
-    ui_draw_text(p->repeat == REPEAT_ONE ? "R1" : (p->repeat == REPEAT_ALL ? "R*" : "R-"), 258, 3, 0.32f,
-                 p->repeat ? COL_ACCENT : COL_TEXT_DIM, 0);
-    ui_draw_text("O3DS", 286, 3, 0.32f, COL_TEXT_DIM, 0);
+    rect(0, 0, BOT_W, 38, COL_WOOD_DK);
+    btn(EQ_BACK_X, EQ_BACK_Y, EQ_BACK_W, EQ_BACK_H, 0);
+    ui_draw_text("BACK", EQ_BACK_X + EQ_BACK_W * 0.5f, EQ_BACK_Y + 6, 0.38f, COL_TEXT, C2D_AlignCenter);
+    ui_draw_text("EQUALIZER", 160, 10, 0.42f, COL_GOLD, C2D_AlignCenter);
 
-    ui_draw_text(p->current_title[0] ? p->current_title : "Выберите трек в списке", 8, 20, 0.40f, COL_TEXT, 0);
-    if (p->error) {
-        ui_draw_text(p->error_msg, 8, 34, 0.32f, COL_VU_RED, 0);
-    } else {
-        snprintf(line, sizeof(line), "%s  %d%%  %s",
-                 format_name(p->current_format),
-                 p->volume_pct,
-                 p->state == PLAYER_PLAYING ? "PLAY" : (p->state == PLAYER_PAUSED ? "PAUSE" : "STOP"));
-        ui_draw_text(line, 8, 34, 0.32f, COL_TEXT_DIM, 0);
+    for (i = 0; i < EQ_BANDS; i++) {
+        float cx = (float)(EQ_COL0 + i * EQ_COL_GAP);
+        float g = (p->eq.gain_db[i] - EQ_GAIN_MIN_DB) / (EQ_GAIN_MAX_DB - EQ_GAIN_MIN_DB);
+        float fill = (float)EQ_SLIDER_H;
+        float h = g * fill;
+        float tx = cx - (float)EQ_SLIDER_W * 0.5f;
+        float midy = (float)EQ_SLIDER_Y + fill * 0.5f;
+
+        ui_draw_text(eq_band_name(i), cx, (float)EQ_SLIDER_Y - 14.0f, 0.32f, COL_TEXT_DIM, C2D_AlignCenter);
+        rect(tx, (float)EQ_SLIDER_Y, (float)EQ_SLIDER_W, fill, COL_METAL_DK);
+        rect(tx, (float)EQ_SLIDER_Y + (fill - h), (float)EQ_SLIDER_W, h, COL_ACCENT);
+        C2D_DrawLine(tx - 5.0f, midy, COL_TEXT_DIM, tx + (float)EQ_SLIDER_W + 5.0f, midy, COL_TEXT_DIM, 1.0f, 0.5f);
+        rect(tx - 4.0f, (float)EQ_SLIDER_Y + (fill - h) - 4.0f, (float)EQ_SLIDER_W + 8.0f, 10.0f, COL_GOLD);
+        snprintf(line, sizeof(line), "%+.0f dB", p->eq.gain_db[i]);
+        ui_draw_text(line, cx, (float)EQ_SLIDER_Y + fill + 6.0f, 0.32f, COL_GOLD, C2D_AlignCenter);
     }
+}
 
-    rect(SEEK_X, SEEK_Y + 3, SEEK_W, 6, COL_METAL_DK);
-    rect(SEEK_X, SEEK_Y + 3, SEEK_W * prog, 6, COL_ACCENT);
-    circle(SEEK_X + SEEK_W * prog, SEEK_Y + 6, 4.0f, COL_GOLD);
+static void draw_player_screen(const Player *p, const Library *lib)
+{
+    int i, vis;
+    char line[160];
+    float prog = player_progress(p);
 
+    rect(0, 0, BOT_W, BOT_H, COL_BOT_BG);
+
+    ui_draw_text(p->current_title[0] ? p->current_title : "Выберите трек в папке",
+                 8, 3, 0.40f, COL_TEXT, 0);
+    if (p->error) {
+        ui_draw_text(p->error_msg, 8, 16, 0.30f, COL_VU_RED, 0);
+    } else {
+        snprintf(line, sizeof(line), "%s  %s",
+                 format_name(p->current_format),
+                 p->state == PLAYER_PLAYING ? "PLAY" : (p->state == PLAYER_PAUSED ? "PAUSE" : "STOP"));
+        ui_draw_text(line, 8, 16, 0.30f, COL_TEXT_DIM, 0);
+    }
     {
         int cur_s = 0, tot_s = 0;
         if (p->decoder.open && p->decoder.sample_rate > 0) {
@@ -260,8 +281,12 @@ void ui_draw_bottom(const Player *p, const Library *lib)
             tot_s = (int)(p->decoder.total_frames / (uint64_t)p->decoder.sample_rate);
         }
         snprintf(line, sizeof(line), "%d:%02d / %d:%02d", cur_s / 60, cur_s % 60, tot_s / 60, tot_s % 60);
-        ui_draw_text(line, 230, 34, 0.32f, COL_TEXT_DIM, 0);
+        ui_draw_text(line, 230, 16, 0.30f, COL_TEXT_DIM, 0);
     }
+
+    rect(SEEK_X, SEEK_Y + 3, SEEK_W, 6, COL_METAL_DK);
+    rect(SEEK_X, SEEK_Y + 3, SEEK_W * prog, 6, COL_ACCENT);
+    circle(SEEK_X + SEEK_W * prog, SEEK_Y + 6, 4.0f, COL_GOLD);
 
     btn(PREV_X, PREV_Y, PREV_W, PREV_H, 0);
     draw_icon_prev(PREV_X, PREV_Y + 7);
@@ -270,45 +295,58 @@ void ui_draw_bottom(const Player *p, const Library *lib)
     btn(NEXT_X, NEXT_Y, NEXT_W, NEXT_H, 0);
     draw_icon_next(NEXT_X, NEXT_Y + 7);
     btn(STOP_X, STOP_Y, STOP_W, STOP_H, 0);
-    draw_icon_stop(STOP_X, STOP_Y + 1);
-
-    ui_draw_text("VOL", VOL_X, VOL_Y - 10, 0.28f, COL_TEXT_DIM, 0);
-    rect(VOL_X, VOL_Y + 4, VOL_W, 8, COL_METAL_DK);
-    volw = VOL_W * p->volume_pct / 100;
-    rect(VOL_X, VOL_Y + 4, (float)volw, 8, COL_GOLD);
-    circle(VOL_X + volw, VOL_Y + 8, 5.0f, COL_AMBER);
-
-    /* EQ sliders */
-    for (i = 0; i < EQ_BANDS; i++) {
-        float x = (float)(EQ_X0 + i * EQ_SLOT);
-        float g = (p->eq.gain_db[i] - EQ_GAIN_MIN_DB) / (EQ_GAIN_MAX_DB - EQ_GAIN_MIN_DB);
-        float fill = EQ_H - 14.0f;
-        float h = g * fill;
-        rect(x + 14, (float)EQ_Y, 10, fill, COL_METAL_DK);
-        rect(x + 14, (float)EQ_Y + (fill - h), 10, h, COL_ACCENT);
-        rect(x + 11, (float)EQ_Y + (fill - h) - 3, 16, 8, COL_GOLD);
-        ui_draw_text(eq_band_name(i), x, (float)EQ_Y + fill + 2, 0.28f, COL_TEXT_DIM, 0);
-    }
+    draw_icon_stop(STOP_X, STOP_Y, STOP_W, STOP_H);
+    btn(EQBTN_X, EQBTN_Y, EQBTN_W, EQBTN_H, 0);
+    ui_draw_text("EQ", EQBTN_X + EQBTN_W * 0.5f, EQBTN_Y + 8, 0.40f, COL_TEXT, C2D_AlignCenter);
     btn(FLAT_X, FLAT_Y, FLAT_W, FLAT_H, 0);
-    ui_draw_text("FLAT", FLAT_X + 12, FLAT_Y + 8, 0.38f, COL_TEXT, 0);
+    ui_draw_text("FLAT", FLAT_X + FLAT_W * 0.5f, FLAT_Y + 8, 0.38f, COL_TEXT, C2D_AlignCenter);
 
-    rect(0, LIST_Y - 2, BOT_W, 1, COL_WOOD_LT);
-    vis = LIST_H / ROW_H;
+    rect(0, FOLDER_Y, BOT_W, FOLDER_H, COL_WOOD_DK);
+    trunc_left(lib->cwd[0] ? lib->cwd : "sdmc:/", line, sizeof(line), 44);
+    ui_draw_text(line, 6, FOLDER_Y + 2, 0.32f, COL_GOLD, 0);
+
+    vis = LIST_ROWS;
     for (i = 0; i < vis; i++) {
         int idx = lib->scroll + i;
         float y = (float)(LIST_Y + i * ROW_H);
+        const Track *t;
         if (idx >= lib->count) break;
+        t = &lib->tracks[idx];
         if (idx == lib->cursor) rect(0, y, BOT_W, ROW_H, COL_LIST_SEL);
-        if (idx == p->track_index) {
+        if (t->kind == ENTRY_FILE && p->current_path[0] && strcmp(p->current_path, t->path) == 0) {
             circle(8, y + ROW_H * 0.5f, 3.0f, COL_GREEN_LED);
+        } else if (t->kind != ENTRY_FILE) {
+            rect(4, y + 5, 8, 6, COL_GOLD_DK);
+            rect(6, y + 4, 5, 2, COL_GOLD);
         }
-        snprintf(line, sizeof(line), "%s", lib->tracks[idx].name);
-        ui_draw_text(line, 16, y + 2, 0.36f, COL_TEXT, 0);
-        ui_draw_text(format_name(lib->tracks[idx].format), 268, y + 3, 0.30f, COL_TEXT_DIM, 0);
+        if (t->kind == ENTRY_PARENT) {
+            ui_draw_text("..", 16, y + 2, 0.34f, COL_TEXT_DIM, 0);
+        } else if (t->kind == ENTRY_DIR) {
+            snprintf(line, sizeof(line), "%.26s/", t->name);
+            ui_draw_text(line, 16, y + 2, 0.34f, COL_ACCENT, 0);
+        } else {
+            snprintf(line, sizeof(line), "%.28s", t->name);
+            ui_draw_text(line, 16, y + 2, 0.34f, COL_TEXT, 0);
+            ui_draw_text(format_name(t->format), 268, y + 2, 0.28f, COL_TEXT_DIM, 0);
+        }
     }
     if (lib->count == 0) {
-        ui_draw_text("Нет файлов. Положите музыку в sdmc:/Music", 8, LIST_Y + 20, 0.34f, COL_TEXT_DIM, 0);
+        ui_draw_text("Нет файлов. Положите музыку в sdmc:/Music", 8, LIST_Y + 20, 0.32f, COL_TEXT_DIM, 0);
+    } else {
+        int any_file = 0;
+        for (i = 0; i < lib->count; i++) {
+            if (lib->tracks[i].kind == ENTRY_FILE) { any_file = 1; break; }
+        }
+        if (!any_file && lib->count <= vis) {
+            ui_draw_text("Нет песен в этой папке", 8, LIST_Y + lib->count * ROW_H + 6, 0.32f, COL_TEXT_DIM, 0);
+        }
     }
+}
+
+void ui_draw_bottom(const Player *p, const Library *lib)
+{
+    if (g_eq_screen) draw_eq_screen(p);
+    else draw_player_screen(p, lib);
 }
 
 void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int held)
@@ -316,39 +354,36 @@ void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int h
     int i;
     if (!held && !pressed) return;
 
+    if (g_eq_screen) {
+        if (held) {
+            for (i = 0; i < EQ_BANDS; i++) {
+                int cx = EQ_COL0 + i * EQ_COL_GAP;
+                if (px >= cx - 28 && px < cx + 28 &&
+                    py >= EQ_SLIDER_Y - 4 && py < EQ_SLIDER_Y + EQ_SLIDER_H + 4) {
+                    float g = 1.0f - ((float)(py - EQ_SLIDER_Y) / (float)EQ_SLIDER_H);
+                    if (g < 0) g = 0;
+                    if (g > 1) g = 1;
+                    eq_set_gain(&p->eq, i, EQ_GAIN_MIN_DB + g * (EQ_GAIN_MAX_DB - EQ_GAIN_MIN_DB));
+                    return;
+                }
+            }
+        }
+        if (pressed && in_box(px, py, EQ_BACK_X, EQ_BACK_Y, EQ_BACK_W, EQ_BACK_H)) {
+            g_eq_screen = 0;
+        }
+        return;
+    }
+
     if (held && in_box(px, py, SEEK_X, SEEK_Y - 4, SEEK_W, SEEK_H + 8)) {
         float f = (float)(px - SEEK_X) / (float)SEEK_W;
         player_seek_frac(p, f);
         return;
     }
-    if (held && in_box(px, py, VOL_X, VOL_Y - 4, VOL_W, VOL_H + 10)) {
-        int pct = (px - VOL_X) * 100 / VOL_W;
-        player_set_volume(p, pct);
-        return;
-    }
-    if (held && py >= EQ_Y && py < EQ_Y + EQ_H - 10) {
-        for (i = 0; i < EQ_BANDS; i++) {
-            int x = EQ_X0 + i * EQ_SLOT;
-            if (px >= x && px < x + 42) {
-                float fill = (float)(EQ_H - 14);
-                float g = 1.0f - ((float)(py - EQ_Y) / fill);
-                if (g < 0) g = 0;
-                if (g > 1) g = 1;
-                eq_set_gain(&p->eq, i, EQ_GAIN_MIN_DB + g * (EQ_GAIN_MAX_DB - EQ_GAIN_MIN_DB));
-                return;
-            }
-        }
-    }
 
     if (!pressed) return;
 
     if (in_box(px, py, PLAY_X, PLAY_Y, PLAY_W, PLAY_H)) {
-        if (!p->decoder.open && lib->count > 0) {
-            int idx = lib->cursor >= 0 ? lib->cursor : 0;
-            if (player_open_index(p, lib, idx) == 0) player_play(p);
-        } else {
-            player_toggle(p);
-        }
+        play_or_activate(p, lib);
         return;
     }
     if (in_box(px, py, PREV_X, PREV_Y, PREV_W, PREV_H)) {
@@ -363,21 +398,20 @@ void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int h
         player_stop(p);
         return;
     }
+    if (in_box(px, py, EQBTN_X, EQBTN_Y, EQBTN_W, EQBTN_H)) {
+        g_eq_screen = 1;
+        return;
+    }
     if (in_box(px, py, FLAT_X, FLAT_Y, FLAT_W, FLAT_H)) {
         eq_flat(&p->eq);
         return;
     }
-    if (px >= 200 && py < HDR_H) {
-        if (px < 250) p->shuffle = !p->shuffle;
-        else p->repeat = (RepeatMode)(((int)p->repeat + 1) % 3);
-        return;
-    }
-    if (py >= LIST_Y) {
+    if (py >= LIST_Y && py < LIST_Y + LIST_H) {
         int row = (py - LIST_Y) / ROW_H;
         int idx = lib->scroll + row;
         if (idx >= 0 && idx < lib->count) {
             lib->cursor = idx;
-            if (player_open_index(p, lib, idx) == 0) player_play(p);
+            player_activate(p, lib, idx);
         }
     }
 }
@@ -391,4 +425,6 @@ void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int h
 {
     (void)p; (void)lib; (void)px; (void)py; (void)pressed; (void)held;
 }
+int ui_handle_back(void) { return 0; }
+int ui_eq_screen_open(void) { return 0; }
 #endif

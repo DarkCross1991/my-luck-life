@@ -14,5 +14,8 @@ void ui_fini(void);
 void ui_draw_top(const Player *p);
 void ui_draw_bottom(const Player *p, const Library *lib);
 void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int held);
+/* 1 if the EQ overlay was open and is now closed. */
+int ui_handle_back(void);
+int ui_eq_screen_open(void);
 
 #endif

@@ -1,6 +1,7 @@
 #include "player.h"
 #include "library.h"
 #include "ui.h"
+#include "ui_layout.h"
 #include "version.h"
 #include "layout.h"
 
@@ -87,37 +88,39 @@ static void audio_thread(void *arg)
 
 static void handle_keys(u32 down, u32 held)
 {
-    circlePosition stick;
     (void)held;
-    hidCircleRead(&stick);
 
     LightLock_Lock(&g_lock);
     if (down & KEY_A) {
-        if (!g_player.decoder.open && g_lib.count > 0) {
-            player_open_index(&g_player, &g_lib, g_lib.cursor);
-            player_play(&g_player);
-        } else {
+        if (library_is_file(&g_lib, g_lib.cursor) &&
+            g_player.decoder.open &&
+            g_player.track_index == g_lib.cursor) {
             player_toggle(&g_player);
+        } else {
+            player_activate(&g_player, &g_lib, g_lib.cursor);
         }
     }
-    if (down & KEY_B) player_stop(&g_player);
+    if (down & KEY_B) {
+        if (!ui_handle_back()) player_stop(&g_player);
+    }
     if (down & KEY_L) player_prev(&g_player, &g_lib);
     if (down & KEY_R) player_next(&g_player, &g_lib);
     if (down & KEY_Y) g_player.shuffle = !g_player.shuffle;
     if (down & KEY_X) g_player.repeat = (RepeatMode)(((int)g_player.repeat + 1) % 3);
     if (down & KEY_SELECT) eq_flat(&g_player.eq);
-    if (down & KEY_DUP) {
-        if (g_lib.cursor > 0) g_lib.cursor--;
-        if (g_lib.cursor < g_lib.scroll) g_lib.scroll = g_lib.cursor;
-    }
-    if (down & KEY_DDOWN) {
-        if (g_lib.cursor + 1 < g_lib.count) g_lib.cursor++;
-        if (g_lib.cursor >= g_lib.scroll + 4) g_lib.scroll = g_lib.cursor - 3;
+    if (!ui_eq_screen_open()) {
+        if (down & KEY_DUP) {
+            if (g_lib.cursor > 0) g_lib.cursor--;
+            if (g_lib.cursor < g_lib.scroll) g_lib.scroll = g_lib.cursor;
+        }
+        if (down & KEY_DDOWN) {
+            if (g_lib.cursor + 1 < g_lib.count) g_lib.cursor++;
+            if (g_lib.cursor >= g_lib.scroll + LIST_ROWS)
+                g_lib.scroll = g_lib.cursor - LIST_ROWS + 1;
+        }
     }
     if (down & KEY_DLEFT) player_seek_frac(&g_player, player_progress(&g_player) - 0.05f);
     if (down & KEY_DRIGHT) player_seek_frac(&g_player, player_progress(&g_player) + 0.05f);
-    if (stick.dy > 50) player_set_volume(&g_player, g_player.volume_pct + 1);
-    if (stick.dy < -50) player_set_volume(&g_player, g_player.volume_pct - 1);
     LightLock_Unlock(&g_lock);
 }
 
@@ -142,7 +145,7 @@ int main(int argc, char **argv)
 
     LightLock_Init(&g_lock);
     player_init(&g_player);
-    library_scan(&g_lib);
+    library_boot(&g_lib);
     ui_init();
 
     g_ndsp_ok = R_SUCCEEDED(ndspInit());

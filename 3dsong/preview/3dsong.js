@@ -1,18 +1,19 @@
-/* 3DSong 0.02 web preview — layout constants match 3dsong/source/ui.c */
+/* 3DSong 0.3 web preview — layout constants match 3dsong/include/ui_layout.h */
 "use strict";
 
 const TOP_W = 400, TOP_H = 240, BOT_W = 320, BOT_H = 240;
-const HDR_H = 18;
-const PLAY = { x: 52, y: 66, w: 50, h: 36 };
-const PREV = { x: 10, y: 70, w: 36, h: 30 };
-const NEXT = { x: 108, y: 70, w: 36, h: 30 };
-const STOP = { x: 150, y: 70, w: 28, h: 30 };
-const VOL = { x: 186, y: 76, w: 124, h: 18 };
-const SEEK = { x: 10, y: 50, w: 300, h: 12 };
-const EQ_Y = 110, EQ_H = 48, EQ_X0 = 18, EQ_SLOT = 70;
-const FLAT = { x: 246, y: 118, w: 62, h: 32 };
-const LIST_Y = 164, LIST_H = 72, ROW_H = 18;
-const LOAD = { x: 150, y: 1, w: 52, h: 16 };
+const SEEK = { x: 8, y: 28, w: 304, h: 12 };
+const PREV = { x: 6, y: 48, w: 36, h: 30 };
+const PLAY = { x: 46, y: 46, w: 48, h: 34 };
+const NEXT = { x: 98, y: 48, w: 36, h: 30 };
+const STOP = { x: 138, y: 48, w: 36, h: 30 };
+const EQBTN = { x: 180, y: 48, w: 62, h: 30 };
+const FLAT = { x: 248, y: 48, w: 66, h: 30 };
+const FOLDER_Y = 86, FOLDER_H = 16;
+const LIST_Y = 104, LIST_H = 136, ROW_H = 17;
+const LIST_ROWS = Math.floor(LIST_H / ROW_H);
+const EQ_BACK = { x: 8, y: 6, w: 64, h: 26 };
+const EQ_SLIDER_Y = 42, EQ_SLIDER_H = 168, EQ_SLIDER_W = 18, EQ_COL0 = 46, EQ_COL_GAP = 90;
 const BANDS = [
   { name: "BASS", hz: 110, q: 0.7 },
   { name: "MID", hz: 900, q: 0.85 },
@@ -33,11 +34,14 @@ const state = {
   playing: false,
   shuffle: false,
   repeat: 0,
-  volume: 0.8,
   eq: [0, 0, 0],
   title: "NO SIGNAL",
   format: "FILE",
   error: "",
+  screen: "player",
+  cwd: "sdmc:/Music",
+  currentPath: "",
+  userFiles: [],
   vuL: 0,
   vuR: 0,
   tubes: [0.18, 0.18, 0.18, 0.18],
@@ -50,7 +54,7 @@ let audioCtx = null;
 let nodes = null;
 let sourceNode = null;
 let mediaEl = null;
-let demoBuffers = [];
+let demoTracks = [];
 let currentKind = null; /* "buffer" | "media" */
 let startedAt = 0;
 let pauseOffset = 0;
@@ -64,6 +68,18 @@ function inBox(px, py, b) {
 function fmtName(name) {
   const m = /\.([a-z0-9]+)$/i.exec(name || "");
   return (m ? m[1] : "file").toUpperCase();
+}
+
+function parentOf(path) {
+  if (path === "sdmc:/Music/Live") return "sdmc:/Music";
+  if (path === "sdmc:/Music") return "sdmc:/";
+  return "sdmc:/";
+}
+
+function truncLeft(path, maxChars) {
+  if (!path) return "";
+  if (path.length <= maxChars) return path;
+  return "..." + path.slice(-(maxChars - 3));
 }
 
 function ensureAudio() {
@@ -80,7 +96,7 @@ function ensureAudio() {
   treble.type = "peaking"; treble.frequency.value = 6500; treble.Q.value = 0.7; treble.gain.value = 0;
   analyser.fftSize = 256;
   analyser.smoothingTimeConstant = 0.55;
-  gain.gain.value = state.volume;
+  gain.gain.value = 1;
   bass.connect(mid);
   mid.connect(treble);
   treble.connect(analyser);
@@ -96,10 +112,6 @@ function applyEq() {
   nodes.bass.gain.value = state.eq[0];
   nodes.mid.gain.value = state.eq[1];
   nodes.treble.gain.value = state.eq[2];
-}
-
-function applyVolume() {
-  if (nodes) nodes.gain.gain.value = state.volume;
 }
 
 function disconnectSource() {
@@ -137,6 +149,31 @@ function clock(sec) {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 }
 
+function rebuildList() {
+  const items = [];
+  if (state.cwd !== "sdmc:/") {
+    items.push({ kind: "parent", title: "..", path: parentOf(state.cwd), format: "" });
+  }
+  if (state.cwd === "sdmc:/") {
+    items.push({ kind: "dir", title: "Music", path: "sdmc:/Music", format: "" });
+  }
+  if (state.cwd === "sdmc:/Music") {
+    items.push({ kind: "dir", title: "Live", path: "sdmc:/Music/Live", format: "" });
+    demoTracks.forEach((tr) => items.push({ ...tr, kind: "file", folder: "sdmc:/Music" }));
+  }
+  state.userFiles.filter((f) => f.folder === state.cwd).forEach((f) => items.push(f));
+  state.tracks = items;
+  if (state.cursor >= state.tracks.length) state.cursor = Math.max(0, state.tracks.length - 1);
+  if (state.scroll > state.cursor) state.scroll = state.cursor;
+}
+
+function openFolder(path) {
+  state.cwd = path;
+  state.cursor = 0;
+  state.scroll = 0;
+  rebuildList();
+}
+
 function onEnded() {
   if (state.repeat === 1) {
     seekFrac(0);
@@ -146,18 +183,26 @@ function onEnded() {
   next(1);
 }
 
+function fileIndices() {
+  const out = [];
+  state.tracks.forEach((t, i) => { if (t.kind === "file") out.push(i); });
+  return out;
+}
+
 async function openIndex(i, autoplay) {
   if (i < 0 || i >= state.tracks.length) return;
+  const tr = state.tracks[i];
+  if (!tr || tr.kind !== "file") return;
   ensureAudio();
   if (audioCtx.state === "suspended") await audioCtx.resume();
   disconnectSource();
-  const tr = state.tracks[i];
   state.index = i;
   state.cursor = i;
   if (i < state.scroll) state.scroll = i;
-  if (i >= state.scroll + 4) state.scroll = i - 3;
+  if (i >= state.scroll + LIST_ROWS) state.scroll = i - LIST_ROWS + 1;
   state.title = tr.title;
   state.format = tr.format;
+  state.currentPath = tr.path || (tr.title + ":" + tr.format);
   state.error = "";
   pauseOffset = 0;
   duration = tr.duration || 0;
@@ -188,8 +233,9 @@ async function openIndex(i, autoplay) {
 }
 
 function play() {
-  if (state.index < 0) {
-    if (state.tracks.length) openIndex(state.cursor, true);
+  const files = fileIndices();
+  if (state.index < 0 || !state.tracks[state.index] || state.tracks[state.index].kind !== "file") {
+    if (files.length) openIndex(files[0], true);
     return;
   }
   ensureAudio();
@@ -247,16 +293,43 @@ function toggle() {
   else play();
 }
 
+function activate(i) {
+  const tr = state.tracks[i];
+  if (!tr) return;
+  state.cursor = i;
+  if (tr.kind === "file") {
+    if (state.index === i && currentKind) toggle();
+    else openIndex(i, true);
+    return;
+  }
+  if (tr.path) openFolder(tr.path);
+}
+
+function onPlayButton() {
+  const tr = state.tracks[state.cursor];
+  if (tr && tr.kind !== "file") {
+    activate(state.cursor);
+    return;
+  }
+  if (tr && state.index === state.cursor && currentKind) toggle();
+  else if (tr && tr.kind === "file") openIndex(state.cursor, true);
+  else toggle();
+}
+
 function next(dir) {
-  if (!state.tracks.length) return;
+  const files = fileIndices();
+  if (!files.length) return;
+  let pos = files.indexOf(state.index);
   let i;
-  if (state.shuffle && state.tracks.length > 1) {
-    i = state.index;
-    while (i === state.index) i = Math.floor(Math.random() * state.tracks.length);
+  if (state.shuffle && files.length > 1) {
+    i = files[Math.floor(Math.random() * files.length)];
+    while (i === state.index && files.length > 1) i = files[Math.floor(Math.random() * files.length)];
   } else {
-    i = state.index + dir;
-    if (i < 0) i = state.repeat === 2 ? state.tracks.length - 1 : 0;
-    if (i >= state.tracks.length) i = state.repeat === 2 ? 0 : state.tracks.length - 1;
+    if (pos < 0) pos = dir > 0 ? -1 : 0;
+    pos += dir;
+    if (pos < 0) pos = state.repeat === 2 ? files.length - 1 : 0;
+    if (pos >= files.length) pos = state.repeat === 2 ? 0 : files.length - 1;
+    i = files[pos];
   }
   openIndex(i, true);
 }
@@ -322,25 +395,31 @@ async function bootDemos() {
       [123.47, 185, 246.94],
     ],
   });
-  demoBuffers = [a, b];
-  state.tracks = [
-    { title: "Filament Warm-up", format: "DEMO", buffer: a, duration: a.duration },
-    { title: "Amber Trio", format: "DEMO", buffer: b, duration: b.duration },
+  demoTracks = [
+    { title: "Filament Warm-up", format: "DEMO", buffer: a, duration: a.duration, path: "sdmc:/Music/filament" },
+    { title: "Amber Trio", format: "DEMO", buffer: b, duration: b.duration, path: "sdmc:/Music/amber" },
   ];
+  openFolder("sdmc:/Music");
 }
 
 function addFiles(fileList) {
   ensureAudio();
+  const folder = state.cwd === "sdmc:/" ? "sdmc:/Music" : state.cwd;
   const files = Array.from(fileList || []);
   files.forEach((file) => {
     const url = URL.createObjectURL(file);
-    state.tracks.push({
+    state.userFiles.push({
+      kind: "file",
       title: file.name.replace(/\.[^.]+$/, ""),
       format: fmtName(file.name),
       url,
       duration: 0,
+      folder,
+      path: folder + "/" + file.name,
     });
   });
+  if (state.cwd === "sdmc:/") openFolder("sdmc:/Music");
+  else rebuildList();
 }
 
 function analyze() {
@@ -429,7 +508,7 @@ function drawTop() {
   ctx.font = "8px sans-serif";
   ctx.fillText("STEREO INTEGRATED AMPLIFIER", 92, 31);
   ctx.fillStyle = "#9a7a38";
-  ctx.fillText("TYPE 0.02", 318, 31);
+  ctx.fillText("TYPE 0.3", 318, 31);
 
   ctx.beginPath();
   ctx.arc(372, 28, 6, 0, Math.PI * 2);
@@ -578,40 +657,68 @@ function btn(ctx, box, hot) {
   ctx.fillRect(box.x, box.y + box.h - 1, box.w, 1);
 }
 
-function drawBottom() {
+function drawEqScreen() {
   const ctx = bctx;
-  ctx.clearRect(0, 0, BOT_W, BOT_H);
   ctx.fillStyle = "#16100c";
   ctx.fillRect(0, 0, BOT_W, BOT_H);
   ctx.fillStyle = "#20160e";
-  ctx.fillRect(0, 0, BOT_W, HDR_H);
-  ctx.fillStyle = "#d4a848";
+  ctx.fillRect(0, 0, BOT_W, 38);
+  btn(ctx, EQ_BACK, false);
+  ctx.fillStyle = "#f0e2c4";
   ctx.font = "11px Palatino, serif";
-  ctx.fillText("3DSong 0.02", 6, 13);
-  ctx.fillStyle = state.shuffle ? "#e88c30" : "#a08c64";
-  ctx.font = "9px sans-serif";
-  ctx.fillText(state.shuffle ? "SHUF" : "SEQ", 210, 13);
-  ctx.fillStyle = state.repeat ? "#e88c30" : "#a08c64";
-  ctx.fillText(state.repeat === 1 ? "R1" : state.repeat === 2 ? "R*" : "R-", 258, 13);
+  ctx.textAlign = "center";
+  ctx.fillText("BACK", EQ_BACK.x + EQ_BACK.w / 2, EQ_BACK.y + 18);
   ctx.fillStyle = "#d4a848";
-  ctx.fillText("LOAD", LOAD.x + 6, 13);
-  ctx.fillStyle = "#8a8070";
-  ctx.fillText("O3DS", 286, 13);
+  ctx.font = "13px Palatino, serif";
+  ctx.fillText("EQUALIZER", 160, 24);
+  ctx.textAlign = "left";
+
+  for (let i = 0; i < 3; i++) {
+    const cx = EQ_COL0 + i * EQ_COL_GAP;
+    const g = (state.eq[i] + 12) / 24;
+    const fill = EQ_SLIDER_H;
+    const h = g * fill;
+    const tx = cx - EQ_SLIDER_W / 2;
+    ctx.fillStyle = "#a08c64";
+    ctx.font = "9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(BANDS[i].name, cx, EQ_SLIDER_Y - 6);
+    ctx.fillStyle = "#1c1a16";
+    ctx.fillRect(tx, EQ_SLIDER_Y, EQ_SLIDER_W, fill);
+    ctx.fillStyle = "#e88c30";
+    ctx.fillRect(tx, EQ_SLIDER_Y + (fill - h), EQ_SLIDER_W, h);
+    ctx.strokeStyle = "#a08c64";
+    ctx.beginPath();
+    ctx.moveTo(tx - 5, EQ_SLIDER_Y + fill * 0.5);
+    ctx.lineTo(tx + EQ_SLIDER_W + 5, EQ_SLIDER_Y + fill * 0.5);
+    ctx.stroke();
+    ctx.fillStyle = "#d4a848";
+    ctx.fillRect(tx - 4, EQ_SLIDER_Y + (fill - h) - 4, EQ_SLIDER_W + 8, 10);
+    ctx.fillStyle = "#d4a848";
+    ctx.fillText(`${state.eq[i] >= 0 ? "+" : ""}${Math.round(state.eq[i])} dB`, cx, EQ_SLIDER_Y + fill + 16);
+  }
+  ctx.textAlign = "left";
+}
+
+function drawPlayerScreen() {
+  const ctx = bctx;
+  ctx.fillStyle = "#16100c";
+  ctx.fillRect(0, 0, BOT_W, BOT_H);
 
   ctx.fillStyle = "#f0e2c4";
   ctx.font = "11px Palatino, serif";
-  ctx.fillText(state.title || "Выберите трек в списке", 8, 32);
+  ctx.fillText(state.title || "Выберите трек в папке", 8, 14);
   ctx.font = "9px sans-serif";
   if (state.error) {
     ctx.fillStyle = "#c83020";
-    ctx.fillText(state.error, 8, 44);
+    ctx.fillText(state.error, 8, 26);
   } else {
     ctx.fillStyle = "#a08c64";
     const st = state.playing ? "PLAY" : pauseOffset > 0 ? "PAUSE" : "STOP";
-    ctx.fillText(`${state.format}  ${Math.round(state.volume * 100)}%  ${st}`, 8, 44);
+    ctx.fillText(`${state.format}  ${st}`, 8, 26);
   }
   ctx.fillStyle = "#a08c64";
-  ctx.fillText(`${clock(currentTime())} / ${clock(duration)}`, 230, 44);
+  ctx.fillText(`${clock(currentTime())} / ${clock(duration)}`, 230, 26);
 
   const prog = progress();
   ctx.fillStyle = "#1c1a16";
@@ -644,70 +751,82 @@ function drawBottom() {
   triangle(ctx, NEXT.x + 26, NEXT.y + 15, 1);
   btn(ctx, STOP, false);
   ctx.fillStyle = "#f0e2c4";
-  ctx.fillRect(STOP.x + 8, STOP.y + 9, 12, 12);
-
-  ctx.fillStyle = "#a08c64";
-  ctx.font = "8px sans-serif";
-  ctx.fillText("VOL", VOL.x, VOL.y - 2);
-  ctx.fillStyle = "#1c1a16";
-  ctx.fillRect(VOL.x, VOL.y + 4, VOL.w, 8);
-  ctx.fillStyle = "#d4a848";
-  ctx.fillRect(VOL.x, VOL.y + 4, VOL.w * state.volume, 8);
-  ctx.beginPath();
-  ctx.arc(VOL.x + VOL.w * state.volume, VOL.y + 8, 5, 0, Math.PI * 2);
-  ctx.fillStyle = "#ff9a28";
-  ctx.fill();
-
-  for (let i = 0; i < 3; i++) {
-    const x = EQ_X0 + i * EQ_SLOT;
-    const g = (state.eq[i] + 12) / 24;
-    const fill = EQ_H - 14;
-    const h = g * fill;
-    ctx.fillStyle = "#1c1a16";
-    ctx.fillRect(x + 14, EQ_Y, 10, fill);
-    ctx.fillStyle = "#e88c30";
-    ctx.fillRect(x + 14, EQ_Y + (fill - h), 10, h);
-    ctx.fillStyle = "#d4a848";
-    ctx.fillRect(x + 11, EQ_Y + (fill - h) - 3, 16, 8);
-    ctx.fillStyle = "#a08c64";
-    ctx.font = "8px sans-serif";
-    ctx.fillText(BANDS[i].name, x, EQ_Y + fill + 10);
-  }
-  btn(ctx, FLAT, false);
+  ctx.fillRect(STOP.x + (STOP.w - 12) / 2, STOP.y + (STOP.h - 12) / 2, 12, 12);
+  btn(ctx, EQBTN, state.screen === "eq");
   ctx.fillStyle = "#f0e2c4";
-  ctx.font = "11px Palatino, serif";
-  ctx.fillText("FLAT", FLAT.x + 14, FLAT.y + 20);
+  ctx.font = "12px Palatino, serif";
+  ctx.textAlign = "center";
+  ctx.fillText("EQ", EQBTN.x + EQBTN.w / 2, EQBTN.y + 20);
+  btn(ctx, FLAT, false);
+  ctx.fillText("FLAT", FLAT.x + FLAT.w / 2, FLAT.y + 20);
+  ctx.textAlign = "left";
 
-  ctx.fillStyle = "#3a2a18";
-  ctx.fillRect(0, LIST_Y - 2, BOT_W, 1);
-  const vis = Math.floor(LIST_H / ROW_H);
+  ctx.fillStyle = "#20160e";
+  ctx.fillRect(0, FOLDER_Y, BOT_W, FOLDER_H);
+  ctx.fillStyle = "#d4a848";
+  ctx.font = "9px sans-serif";
+  ctx.fillText(truncLeft(state.cwd, 36), 6, FOLDER_Y + 12);
+  ctx.fillStyle = "#e88c30";
+  ctx.textAlign = "right";
+  ctx.fillText("LOAD", BOT_W - 8, FOLDER_Y + 12);
+  ctx.textAlign = "left";
+
+  const vis = LIST_ROWS;
+  let anyFile = 0;
   for (let i = 0; i < vis; i++) {
     const idx = state.scroll + i;
     const y = LIST_Y + i * ROW_H;
     if (idx >= state.tracks.length) break;
+    const tr = state.tracks[idx];
     if (idx === state.cursor) {
       ctx.fillStyle = "#5a3818";
       ctx.fillRect(0, y, BOT_W, ROW_H);
     }
-    if (idx === state.index) {
+    if (tr.kind === "file" && tr.path && tr.path === state.currentPath) {
       ctx.fillStyle = "#48dc5a";
       ctx.beginPath();
       ctx.arc(8, y + ROW_H * 0.5, 3, 0, Math.PI * 2);
       ctx.fill();
+      anyFile++;
+    } else if (tr.kind !== "file") {
+      ctx.fillStyle = "#8a6030";
+      ctx.fillRect(4, y + 5, 8, 6);
+      ctx.fillStyle = "#d4a848";
+      ctx.fillRect(6, y + 4, 5, 2);
     }
-    ctx.fillStyle = "#f0e2c4";
     ctx.font = "10px Palatino, serif";
-    const name = state.tracks[idx].title.slice(0, 28);
-    ctx.fillText(name, 16, y + 13);
-    ctx.fillStyle = "#a08c64";
-    ctx.font = "8px sans-serif";
-    ctx.fillText(state.tracks[idx].format, 268, y + 13);
+    if (tr.kind === "parent") {
+      ctx.fillStyle = "#a08c64";
+      ctx.fillText("..", 16, y + 12);
+    } else if (tr.kind === "dir") {
+      ctx.fillStyle = "#e88c30";
+      ctx.fillText(`${tr.title}/`, 16, y + 12);
+    } else {
+      ctx.fillStyle = "#f0e2c4";
+      ctx.fillText(tr.title.slice(0, 28), 16, y + 12);
+      ctx.fillStyle = "#a08c64";
+      ctx.font = "8px sans-serif";
+      ctx.fillText(tr.format, 268, y + 12);
+      anyFile++;
+    }
   }
+  const hasFile = state.tracks.some((t) => t.kind === "file");
   if (!state.tracks.length) {
     ctx.fillStyle = "#a08c64";
     ctx.font = "10px sans-serif";
     ctx.fillText("Нет файлов. LOAD или drag-and-drop", 8, LIST_Y + 24);
+  } else if (!hasFile) {
+    ctx.fillStyle = "#a08c64";
+    ctx.font = "10px sans-serif";
+    ctx.fillText("Нет песен в этой папке", 8, LIST_Y + state.tracks.length * ROW_H + 14);
   }
+}
+
+function drawBottom() {
+  const ctx = bctx;
+  ctx.clearRect(0, 0, BOT_W, BOT_H);
+  if (state.screen === "eq") drawEqScreen();
+  else drawPlayerScreen();
 }
 
 function triangle(ctx, x, y, dir) {
@@ -731,47 +850,47 @@ function canvasPos(canvas, ev) {
 function handlePointer(px, py, pressed, held) {
   px = Math.floor(px);
   py = Math.floor(py);
+  if (state.screen === "eq") {
+    if (held) {
+      for (let i = 0; i < 3; i++) {
+        const cx = EQ_COL0 + i * EQ_COL_GAP;
+        if (px >= cx - 28 && px < cx + 28 && py >= EQ_SLIDER_Y - 4 && py < EQ_SLIDER_Y + EQ_SLIDER_H + 4) {
+          let g = 1 - (py - EQ_SLIDER_Y) / EQ_SLIDER_H;
+          g = Math.min(1, Math.max(0, g));
+          state.eq[i] = -12 + g * 24;
+          applyEq();
+          dragging = "eq";
+          return;
+        }
+      }
+    }
+    if (pressed && inBox(px, py, EQ_BACK)) state.screen = "player";
+    return;
+  }
   if (held && inBox(px, py, { x: SEEK.x, y: SEEK.y - 4, w: SEEK.w, h: SEEK.h + 8 })) {
     seekFrac((px - SEEK.x) / SEEK.w);
     dragging = "seek";
     return;
   }
-  if (held && inBox(px, py, { x: VOL.x, y: VOL.y - 4, w: VOL.w, h: VOL.h + 10 })) {
-    state.volume = Math.min(1, Math.max(0, (px - VOL.x) / VOL.w));
-    applyVolume();
-    dragging = "vol";
-    return;
-  }
-  if (held && py >= EQ_Y && py < EQ_Y + EQ_H - 10) {
-    for (let i = 0; i < 3; i++) {
-      const x = EQ_X0 + i * EQ_SLOT;
-      if (px >= x && px < x + 42) {
-        const fill = EQ_H - 14;
-        let g = 1 - (py - EQ_Y) / fill;
-        g = Math.min(1, Math.max(0, g));
-        state.eq[i] = -12 + g * 24;
-        applyEq();
-        dragging = "eq";
-        return;
-      }
-    }
-  }
   if (!pressed) return;
-  if (inBox(px, py, PLAY)) toggle();
+  if (inBox(px, py, PLAY)) onPlayButton();
   else if (inBox(px, py, PREV)) {
     if (progress() > 0.04) seekFrac(0);
     else next(-1);
   } else if (inBox(px, py, NEXT)) next(1);
   else if (inBox(px, py, STOP)) stop();
+  else if (inBox(px, py, EQBTN)) state.screen = "eq";
   else if (inBox(px, py, FLAT)) { state.eq = [0, 0, 0]; applyEq(); }
-  else if (inBox(px, py, LOAD)) fileInput.click();
-  else if (px >= 200 && py < HDR_H) {
-    if (px < 250) state.shuffle = !state.shuffle;
-    else if (px < 286) state.repeat = (state.repeat + 1) % 3;
-  } else if (py >= LIST_Y) {
+  else if (py >= FOLDER_Y && py < FOLDER_Y + FOLDER_H) fileInput.click();
+  else if (py >= LIST_Y && py < LIST_Y + LIST_H) {
     const row = Math.floor((py - LIST_Y) / ROW_H);
     const idx = state.scroll + row;
-    if (idx >= 0 && idx < state.tracks.length) openIndex(idx, true);
+    if (idx >= 0 && idx < state.tracks.length) {
+      const tr = state.tracks[idx];
+      state.cursor = idx;
+      if (tr.kind === "file") openIndex(idx, true);
+      else if (tr.path) openFolder(tr.path);
+    }
   }
 }
 
@@ -791,26 +910,25 @@ botCanvas.addEventListener("pointerup", () => { dragging = null; });
 botCanvas.addEventListener("pointercancel", () => { dragging = null; });
 
 window.addEventListener("keydown", (ev) => {
-  if (ev.code === "Space") { ev.preventDefault(); toggle(); }
+  if (ev.code === "Space") { ev.preventDefault(); onPlayButton(); }
+  if (ev.code === "Escape" || ev.code === "KeyB") {
+    if (state.screen === "eq") state.screen = "player";
+    else stop();
+  }
+  if (ev.code === "KeyE") state.screen = state.screen === "eq" ? "player" : "eq";
   if (ev.code === "ArrowLeft") next(-1);
   if (ev.code === "ArrowRight") next(1);
-  if (ev.code === "ArrowUp") {
-    state.cursor = Math.max(0, state.cursor - 1);
-    if (state.cursor < state.scroll) state.scroll = state.cursor;
+  if (state.screen !== "eq") {
+    if (ev.code === "ArrowUp") {
+      state.cursor = Math.max(0, state.cursor - 1);
+      if (state.cursor < state.scroll) state.scroll = state.cursor;
+    }
+    if (ev.code === "ArrowDown") {
+      state.cursor = Math.min(state.tracks.length - 1, state.cursor + 1);
+      if (state.cursor >= state.scroll + LIST_ROWS) state.scroll = state.cursor - LIST_ROWS + 1;
+    }
   }
-  if (ev.code === "ArrowDown") {
-    state.cursor = Math.min(state.tracks.length - 1, state.cursor + 1);
-    if (state.cursor >= state.scroll + 4) state.scroll = state.cursor - 3;
-  }
-  if (ev.code === "KeyL" || ev.code === "Equal") {
-    state.volume = Math.min(1, state.volume + 0.05);
-    applyVolume();
-  }
-  if (ev.code === "KeyR" || ev.code === "Minus") {
-    state.volume = Math.max(0, state.volume - 0.05);
-    applyVolume();
-  }
-  if (ev.code === "Enter" && state.cursor >= 0) openIndex(state.cursor, true);
+  if (ev.code === "Enter" && state.cursor >= 0) activate(state.cursor);
 });
 
 fileInput.addEventListener("change", () => addFiles(fileInput.files));

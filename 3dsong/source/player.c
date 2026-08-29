@@ -11,7 +11,7 @@
 void player_init(Player *p)
 {
     memset(p, 0, sizeof(*p));
-    p->volume_pct = 80;
+    p->volume_pct = 100;
     p->track_index = -1;
     p->repeat = REPEAT_OFF;
     eq_init(&p->eq, 44100.0f);
@@ -24,27 +24,12 @@ void player_shutdown(Player *p)
     decoder_close(&p->decoder);
 }
 
-static void apply_volume(int16_t *samples, int frames, int pct)
-{
-    int i;
-    int g;
-    if (pct >= 100) return;
-    if (pct <= 0) {
-        memset(samples, 0, (size_t)frames * 2 * sizeof(int16_t));
-        return;
-    }
-    g = pct * 256 / 100;
-    for (i = 0; i < frames * 2; i++) {
-        samples[i] = (int16_t)((samples[i] * g) / 256);
-    }
-}
-
 int player_open_index(Player *p, Library *lib, int index)
 {
     const Track *t;
     if (!p || !lib) return -1;
     t = library_at(lib, index);
-    if (!t) return -1;
+    if (!t || t->kind != ENTRY_FILE) return -1;
     decoder_close(&p->decoder);
     p->error = 0;
     p->error_msg[0] = 0;
@@ -60,7 +45,12 @@ int player_open_index(Player *p, Library *lib, int index)
         lib->cursor = index;
         return -1;
     }
-    eq_init(&p->eq, (float)p->decoder.sample_rate);
+    {
+        float keep[EQ_BANDS];
+        memcpy(keep, p->eq.gain_db, sizeof(keep));
+        eq_init(&p->eq, (float)p->decoder.sample_rate);
+        eq_set_gains(&p->eq, keep);
+    }
     viz_init(&p->viz);
     strncpy(p->current_path, t->path, sizeof(p->current_path) - 1);
     strncpy(p->current_title, t->name, sizeof(p->current_title) - 1);
@@ -69,6 +59,16 @@ int player_open_index(Player *p, Library *lib, int index)
     lib->cursor = index;
     p->state = PLAYER_STOPPED;
     return 0;
+}
+
+int player_activate(Player *p, Library *lib, int index)
+{
+    int r;
+    if (!p || !lib) return -1;
+    r = library_activate(lib, index);
+    if (r != 1) return r;
+    if (player_open_index(p, lib, index) != 0) return -1;
+    return player_play(p) == 0 ? 1 : -1;
 }
 
 int player_play(Player *p)
@@ -105,23 +105,27 @@ void player_stop(Player *p)
 
 static int pick_next(Player *p, Library *lib, int dir)
 {
-    int n;
+    int n, i, idx;
     if (!lib || lib->count <= 0) return -1;
     n = lib->count;
-    if (p->shuffle && n > 1) {
-        int next = p->track_index;
+    if (p->shuffle) {
         int guard = 0;
-        while (next == p->track_index && guard++ < 16) {
+        int next = p->track_index;
+        while (guard++ < 32) {
             next = rand() % n;
+            if (next != p->track_index && library_is_file(lib, next)) return next;
         }
-        return next;
+        return library_is_file(lib, p->track_index) ? p->track_index : -1;
     }
-    {
-        int idx = p->track_index + dir;
+    idx = p->track_index;
+    for (i = 0; i < n; i++) {
+        idx += dir;
         if (idx < 0) idx = (p->repeat == REPEAT_ALL) ? n - 1 : 0;
         if (idx >= n) idx = (p->repeat == REPEAT_ALL) ? 0 : n - 1;
-        return idx;
+        if (library_is_file(lib, idx)) return idx;
+        if (p->repeat != REPEAT_ALL && ((dir > 0 && idx == n - 1) || (dir < 0 && idx == 0))) break;
     }
+    return -1;
 }
 
 int player_next(Player *p, Library *lib)
@@ -196,7 +200,6 @@ int player_fill_s16_stereo(Player *p, int16_t *out, int frames)
         memset(out + got * 2, 0, (size_t)(frames - got) * 2 * sizeof(int16_t));
     }
     eq_process_s16_stereo(&p->eq, out, got);
-    apply_volume(out, got, p->volume_pct);
     viz_analyze_s16_stereo(&p->viz, out, got);
     return got;
 }

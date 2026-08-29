@@ -38,6 +38,8 @@ typedef struct {
 void player_init(Player *p);
 void player_shutdown(Player *p);
 int player_open_index(Player *p, Library *lib, int index);
+/* File: open+play (returns 1). Dir/parent: navigate (returns 0). Fail: -1. */
+int player_activate(Player *p, Library *lib, int index);
 int player_play(Player *p);
 void player_pause(Player *p);
 void player_toggle(Player *p);
