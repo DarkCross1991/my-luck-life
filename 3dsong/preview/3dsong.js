@@ -19,10 +19,10 @@ const BANDS = [
   { name: "TREBLE", hz: 6500, q: 0.7 },
 ];
 
-const top = document.getElementById("top");
-const bot = document.getElementById("bot");
-const tctx = top.getContext("2d");
-const bctx = bot.getContext("2d");
+const topCanvas = document.getElementById("top");
+const botCanvas = document.getElementById("bot");
+const tctx = topCanvas.getContext("2d");
+const bctx = botCanvas.getContext("2d");
 const fileInput = document.getElementById("fileInput");
 
 const state = {
@@ -775,20 +775,20 @@ function handlePointer(px, py, pressed, held) {
   }
 }
 
-bot.addEventListener("pointerdown", (ev) => {
+botCanvas.addEventListener("pointerdown", (ev) => {
   ev.preventDefault();
-  bot.setPointerCapture(ev.pointerId);
-  const p = canvasPos(bot, ev);
+  botCanvas.setPointerCapture(ev.pointerId);
+  const p = canvasPos(botCanvas, ev);
   dragging = "down";
   handlePointer(p.x, p.y, true, true);
 });
-bot.addEventListener("pointermove", (ev) => {
+botCanvas.addEventListener("pointermove", (ev) => {
   if (!dragging) return;
-  const p = canvasPos(bot, ev);
+  const p = canvasPos(botCanvas, ev);
   handlePointer(p.x, p.y, false, true);
 });
-bot.addEventListener("pointerup", () => { dragging = null; });
-bot.addEventListener("pointercancel", () => { dragging = null; });
+botCanvas.addEventListener("pointerup", () => { dragging = null; });
+botCanvas.addEventListener("pointercancel", () => { dragging = null; });
 
 window.addEventListener("keydown", (ev) => {
   if (ev.code === "Space") { ev.preventDefault(); toggle(); }
