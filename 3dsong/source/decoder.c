@@ -1,5 +1,6 @@
 #include "decoder.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -149,8 +150,14 @@ int decoder_open(Decoder *d, const char *path)
 
 #ifdef HAVE_VORBIS
     if (fmt == FMT_OGG) {
+        FILE *fp;
         vorbis_info *vi;
-        if (ov_fopen(path, &d->vf) != 0) return -1;
+        fp = fopen(path, "rb");
+        if (!fp) return -1;
+        if (ov_open(fp, &d->vf, NULL, 0) != 0) {
+            fclose(fp);
+            return -1;
+        }
         d->vf_open = 1;
         vi = ov_info(&d->vf, -1);
         if (!vi) {

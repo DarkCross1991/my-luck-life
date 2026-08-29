@@ -1,0 +1,27 @@
+BasicInfo:
+  Title                   : "3DSong"
+  CompanyCode             : "00"
+  ProductCode             : "CTR-P-3DSN"
+  ContentType             : Application
+  Logo                    : Homebrew
+
+TitleInfo:
+  UniqueId                : 0x3d502
+  Category                : Application
+
+Option:
+  UseOnSD                 : true
+  EnableCompress          : true
+  FreeProductCode         : true
+  EnableCrypt             : false
+  MediaFootPadding        : false
+
+AccessControlInfo:
+  FileSystemAccess:
+    - DirectSdmc
+    - DirectSdmcWrite
+
+SystemControlInfo:
+  SaveDataSize            : 0KB
+  RemasterVersion         : 0
+  StackSize               : 0x40000

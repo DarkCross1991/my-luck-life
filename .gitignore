@@ -1,10 +1,10 @@
 build/
 *.elf
-*.3dsx
-*.smdh
-*.cia
-*.o
 *.map
+*.o
+/3dsong/3DSong.3dsx
+/3dsong/3DSong.smdh
+/3dsong/3DSong.elf
 .DS_Store
 __pycache__/
 *.pyc

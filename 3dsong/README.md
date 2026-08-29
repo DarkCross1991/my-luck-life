@@ -28,6 +28,21 @@ Put files in `sdmc:/Music` or `sdmc:/3ds/3DSong`.
 
 Headphones keep playing with the lid closed (APT).
 
+## Готовый пакет 0.02
+
+В `dist/` уже лежат собранные файлы:
+
+- `3DSong.3dsx` + `3DSong.smdh` — Homebrew Launcher (`sdmc:/3ds/3DSong/`)
+- `3DSong.cia` — установка через FBI
+
+На консоли нужен дамп DSP (`sdmc:/3ds/dspfirm.cdc`) и музыка в `sdmc:/Music`.
+
+Пересобрать в Docker (официальный `devkitpro/devkitarm`):
+
+```bash
+./tools/build-3ds.sh
+```
+
 ## Build `.3dsx` (devkitPro)
 
 ```bash

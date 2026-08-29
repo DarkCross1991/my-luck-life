@@ -13,7 +13,7 @@
 #include <tremor/ivorbisfile.h>
 #endif
 #ifdef HAVE_OPUS
-#include <opusfile.h>
+#include <opus/opusfile.h>
 #endif
 #ifdef HAVE_FLAC
 #include <FLAC/stream_decoder.h>
