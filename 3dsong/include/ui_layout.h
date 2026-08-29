@@ -1,7 +1,7 @@
 #ifndef THREEDSONG_UI_LAYOUT_H
 #define THREEDSONG_UI_LAYOUT_H
 
-/* Bottom 320x240 — 3DSong 0.3. Keep preview/3dsong.js in sync. */
+/* Bottom 320x240 — 3DSong 0.4. Keep preview/3dsong.js in sync. */
 
 #define SEEK_X 8
 #define SEEK_Y 28
@@ -52,8 +52,8 @@
 #define EQ_BACK_Y 6
 #define EQ_BACK_W 64
 #define EQ_BACK_H 26
-#define EQ_SLIDER_Y 42
-#define EQ_SLIDER_H 168
+#define EQ_SLIDER_Y 62
+#define EQ_SLIDER_H 148
 #define EQ_SLIDER_W 18
 #define EQ_COL0 46
 #define EQ_COL_GAP 90

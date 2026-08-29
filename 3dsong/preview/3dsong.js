@@ -1,4 +1,4 @@
-/* 3DSong 0.3 web preview — layout constants match 3dsong/include/ui_layout.h */
+/* 3DSong 0.4 web preview — layout constants match 3dsong/include/ui_layout.h */
 "use strict";
 
 const TOP_W = 400, TOP_H = 240, BOT_W = 320, BOT_H = 240;
@@ -13,7 +13,7 @@ const FOLDER_Y = 86, FOLDER_H = 16;
 const LIST_Y = 104, LIST_H = 136, ROW_H = 17;
 const LIST_ROWS = Math.floor(LIST_H / ROW_H);
 const EQ_BACK = { x: 8, y: 6, w: 64, h: 26 };
-const EQ_SLIDER_Y = 42, EQ_SLIDER_H = 168, EQ_SLIDER_W = 18, EQ_COL0 = 46, EQ_COL_GAP = 90;
+const EQ_SLIDER_Y = 62, EQ_SLIDER_H = 148, EQ_SLIDER_W = 18, EQ_COL0 = 46, EQ_COL_GAP = 90;
 const BANDS = [
   { name: "BASS", hz: 110, q: 0.7 },
   { name: "MID", hz: 900, q: 0.85 },
@@ -47,6 +47,8 @@ const state = {
   tubes: [0.18, 0.18, 0.18, 0.18],
   wave: new Float32Array(128),
   bins: new Float32Array(16),
+  spec: new Float32Array(80),
+  sparks: null,
   persist: null,
 };
 
@@ -448,6 +450,15 @@ function analyze() {
     const e = (s / Math.max(1, b - a)) / 255;
     state.bins[i] += (e - state.bins[i]) * 0.35;
   }
+  for (let i = 0; i < state.spec.length; i++) {
+    const a = Math.floor((i / state.spec.length) * freq.length);
+    const b = Math.floor(((i + 1) / state.spec.length) * freq.length);
+    let s = 0;
+    for (let k = a; k < b; k++) s += freq[k];
+    const e = (s / Math.max(1, b - a)) / 255;
+    const atk = state.playing ? 0.44 : 0.14;
+    state.spec[i] += (e - state.spec[i]) * atk;
+  }
   const step = Math.floor(time.length / state.wave.length);
   for (let i = 0; i < state.wave.length; i++) {
     state.wave[i] = (time[i * step] - 128) / 128;
@@ -466,83 +477,113 @@ function analyze() {
     state.vuL *= 0.96;
     state.vuR *= 0.96;
     for (let i = 0; i < 4; i++) state.tubes[i] = 0.16 + (state.tubes[i] - 0.16) * 0.96;
+    for (let i = 0; i < state.spec.length; i++) state.spec[i] *= 0.94;
   }
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+const LED_COLS = 80;
+const LED_ROWS = 60;
+const LED_CELL_W = TOP_W / LED_COLS;
+const LED_CELL_H = TOP_H / LED_ROWS;
+
+function warmLedRgb(t, bright) {
+  const stops = [
+    [0, [42, 24, 10]],
+    [0.22, [88, 48, 16]],
+    [0.45, [168, 108, 32]],
+    [0.62, [228, 176, 64]],
+    [0.78, [255, 148, 40]],
+    [1, [168, 44, 18]],
+  ];
+  let i = 0;
+  while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
+  const a = stops[i];
+  const b = stops[i + 1];
+  const f = (t - a[0]) / Math.max(0.001, b[0] - a[0]);
+  const r = Math.round((a[1][0] + (b[1][0] - a[1][0]) * f) * bright);
+  const g = Math.round((a[1][1] + (b[1][1] - a[1][1]) * f) * bright);
+  const bl = Math.round((a[1][2] + (b[1][2] - a[1][2]) * f) * bright);
+  return `rgb(${Math.min(255, r)},${Math.min(255, g)},${Math.min(255, bl)})`;
+}
+
+function drawLedCell(ctx, col, row, color, alpha) {
+  const x = col * LED_CELL_W + 0.5;
+  const y = row * LED_CELL_H + 0.5;
+  const w = LED_CELL_W - 1;
+  const h = LED_CELL_H - 1;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+  ctx.globalAlpha = 1;
 }
 
 function drawTop() {
   const ctx = tctx;
-  ctx.clearRect(0, 0, TOP_W, TOP_H);
+  const mid = LED_ROWS / 2;
+  let col, row, t, energy, half, r, bright, color, i;
 
-  const wood = ctx.createLinearGradient(0, 0, 0, TOP_H);
-  wood.addColorStop(0, "#5a3418");
-  wood.addColorStop(0.5, "#3a1e0c");
-  wood.addColorStop(1, "#241208");
-  ctx.fillStyle = wood;
+  ctx.fillStyle = "#060402";
   ctx.fillRect(0, 0, TOP_W, TOP_H);
-  ctx.fillStyle = "rgba(255,200,120,0.04)";
-  for (let y = 8; y < TOP_H; y += 5) ctx.fillRect(0, y, TOP_W, 1);
 
-  const plate = ctx.createLinearGradient(0, 14, 0, TOP_H - 20);
-  plate.addColorStop(0, "#8a8680");
-  plate.addColorStop(0.12, "#5c5852");
-  plate.addColorStop(0.5, "#3e3c38");
-  plate.addColorStop(1, "#2a2824");
-  roundRect(ctx, 14, 12, TOP_W - 28, TOP_H - 30, 4);
-  ctx.fillStyle = plate;
-  ctx.fill();
+  for (row = 0; row < LED_ROWS; row++) {
+    for (col = 0; col < LED_COLS; col++) {
+      drawLedCell(ctx, col, row, "#140c06", 0.92);
+    }
+  }
 
-  ctx.fillStyle = "#d4a848";
-  ctx.font = "bold 13px Palatino, serif";
-  ctx.fillText("3DSong", 24, 32);
-  ctx.fillStyle = "#b8aa88";
-  ctx.font = "8px sans-serif";
-  ctx.fillText("STEREO INTEGRATED AMPLIFIER", 92, 31);
-  ctx.fillStyle = "#9a7a38";
-  ctx.fillText("TYPE 0.3", 318, 31);
+  for (col = 0; col < LED_COLS; col++) {
+    t = col / (LED_COLS - 1);
+    energy = state.spec[col] || 0;
+    if (!state.playing) {
+      energy *= 0.35;
+      energy += 0.06 * Math.sin(Date.now() * 0.002 + col * 0.35);
+    }
+    energy = Math.min(1, Math.max(0, energy * 1.65 + 0.04));
+    half = Math.floor(energy * (mid - 2));
+    for (r = 0; r < half; r++) {
+      bright = 0.55 + (r / Math.max(1, half)) * 0.45;
+      color = warmLedRgb(t, bright);
+      drawLedCell(ctx, col, Math.floor(mid) - 1 - r, color, 1);
+      drawLedCell(ctx, col, Math.floor(mid) + r, color, 1);
+    }
+  }
 
-  ctx.beginPath();
-  ctx.arc(372, 28, 6, 0, Math.PI * 2);
-  ctx.fillStyle = "#1a1208";
-  ctx.fill();
-  const g = ctx.createRadialGradient(371, 26, 0.5, 372, 28, 7);
-  g.addColorStop(0, state.playing ? "#ffe8a0" : "#6a3a18");
-  g.addColorStop(0.4, state.playing ? "#ff9a28" : "#401808");
-  g.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(372, 28, 7, 0, Math.PI * 2);
-  ctx.fill();
+  if (state.playing) {
+    const cx = TOP_W * 0.5;
+    const cy = TOP_H * 0.5;
+    const pulse = 0.55 + state.vuL * 0.45;
+    if (!state.sparks) {
+      state.sparks = [];
+      for (i = 0; i < 48; i++) {
+        const ang = (i / 48) * Math.PI * 2;
+        state.sparks.push({ ang, dist: 0.12 + (i % 7) * 0.04, phase: i * 0.7 });
+      }
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (i = 0; i < state.sparks.length; i++) {
+      const sp = state.sparks[i];
+      const wobble = Math.sin(Date.now() * 0.004 + sp.phase) * 0.08;
+      const rad = (TOP_W * 0.42) * (sp.dist + wobble) * pulse;
+      const x = cx + Math.cos(sp.ang) * rad;
+      const y = cy + Math.sin(sp.ang) * rad * 0.55;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 3 + pulse * 4);
+      g.addColorStop(0, "rgba(255,220,140,0.85)");
+      g.addColorStop(0.35, "rgba(255,150,40,0.35)");
+      g.addColorStop(1, "rgba(80,30,8,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, 3 + pulse * 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 
-  drawVu(ctx, 78, 118, 54, state.vuL, "L");
-  drawVu(ctx, 322, 118, 54, state.vuR, "R");
-
-  for (let i = 0; i < 4; i++) drawTube(ctx, 150 + i * 26, 88, state.tubes[i]);
-  ctx.fillStyle = "#8a8070";
-  ctx.font = "7px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("EL34", 189, 122);
-  ctx.textAlign = "left";
-
-  drawCrt(ctx, 138, 128, 126, 48);
-
-  ctx.fillStyle = "#1a0e08";
-  ctx.fillRect(18, 196, TOP_W - 36, 22);
-  ctx.fillStyle = "#f0e2c4";
-  ctx.font = "11px Palatino, serif";
-  ctx.fillText(state.title || "NO SIGNAL", 24, 211);
-  ctx.fillStyle = "#e88c30";
-  ctx.font = "9px sans-serif";
-  ctx.fillText(state.format, 308, 211);
+  const vig = ctx.createRadialGradient(TOP_W * 0.5, TOP_H * 0.5, TOP_W * 0.15, TOP_W * 0.5, TOP_H * 0.5, TOP_W * 0.72);
+  vig.addColorStop(0, "rgba(0,0,0,0)");
+  vig.addColorStop(1, "rgba(8,4,2,0.35)");
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, TOP_W, TOP_H);
 }
 
 function drawVu(ctx, cx, cy, r, level, tag) {

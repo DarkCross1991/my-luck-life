@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VIZ_WAVE_N 128
-#define VIZ_BINS   16
+#define VIZ_BINS   64
 
 typedef struct {
     float rms_l;

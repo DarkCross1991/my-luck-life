@@ -49,104 +49,105 @@ static void circle(float x, float y, float r, u32 c)
     C2D_DrawCircleSolid(x, y, 0.45f, r, c);
 }
 
-static void vu_meter(float cx, float cy, float r, float level, const char *tag)
+static u32 warm_led_color(float t, float bright)
 {
-    int i;
-    float t = level;
+    static const struct { float pos; int r, g, b; } stops[] = {
+        { 0.00f, 42, 24, 10 },
+        { 0.22f, 88, 48, 16 },
+        { 0.45f, 168, 108, 32 },
+        { 0.62f, 228, 176, 64 },
+        { 0.78f, 255, 148, 40 },
+        { 1.00f, 168, 44, 18 },
+    };
+    int i = 0;
+    float f;
+    int r, g, b;
     if (t < 0.0f) t = 0.0f;
     if (t > 1.0f) t = 1.0f;
-
-    circle(cx, cy, r + 3.0f, COL_METAL_DK);
-    circle(cx, cy, r, COL_VU_FACE);
-
-    for (i = 0; i <= 10; i++) {
-        float a = (210.0f + (120.0f * (float)i / 10.0f)) * (float)M_PI / 180.0f;
-        float c = cosf(a), s = sinf(a);
-        float x0 = cx + c * (r - 4.0f);
-        float y0 = cy + s * (r - 4.0f);
-        float x1 = cx + c * (r - 11.0f);
-        float y1 = cy + s * (r - 11.0f);
-        u32 col = (i >= 8) ? COL_VU_RED : COL_VU_SCALE;
-        C2D_DrawLine(x0, y0, col, x1, y1, col, 1.0f, 0.55f);
-    }
-
-    {
-        float a = (210.0f + 120.0f * t) * (float)M_PI / 180.0f;
-        float nx = cx + cosf(a) * (r - 14.0f);
-        float ny = cy + sinf(a) * (r - 14.0f);
-        C2D_DrawLine(cx, cy, COL_NEEDLE, nx, ny, COL_AMBER, 1.6f, 0.62f);
-        circle(cx, cy, 3.2f, COL_GOLD);
-        circle(cx, cy, 1.4f, COL_METAL_DK);
-    }
-
-    ui_draw_text(tag, cx, cy + r - 18.0f, 0.38f, COL_GOLD, C2D_AlignCenter);
-    ui_draw_text("VU", cx, cy + 6.0f, 0.32f, COL_TEXT_DIM, C2D_AlignCenter);
+    if (bright < 0.0f) bright = 0.0f;
+    if (bright > 1.0f) bright = 1.0f;
+    while (i < 4 && t > stops[i + 1].pos) i++;
+    f = (t - stops[i].pos) / (stops[i + 1].pos - stops[i].pos);
+    r = (int)((stops[i].r + (stops[i + 1].r - stops[i].r) * f) * bright);
+    g = (int)((stops[i].g + (stops[i + 1].g - stops[i].g) * f) * bright);
+    b = (int)((stops[i].b + (stops[i + 1].b - stops[i].b) * f) * bright);
+    if (r > 255) r = 255;
+    if (g > 255) g = 255;
+    if (b > 255) b = 255;
+    return RGBA(r, g, b, 255);
 }
 
-static void tube(float x, float y, float energy)
+static float viz_col_energy(const VizState *v, int col, int cols)
 {
-    float glow = 0.20f + energy * 0.80f;
-    u32 glass = RGBA(30, 42, 38, 200);
-    u32 fire = RGBA(255, (int)(90 + glow * 80), (int)(20 + glow * 40), (int)(80 + glow * 140));
-    u32 core = RGBA(255, 210, 120, (int)(100 + glow * 155));
-
-    circle(x, y - 10.0f, 11.0f + glow * 6.0f, RGBA(255, 120, 30, (int)(30 + glow * 50)));
-    C2D_DrawEllipseSolid(x - 10.0f, y - 28.0f, 0.5f, 20.0f, 44.0f, glass);
-    C2D_DrawEllipseSolid(x - 6.0f, y - 18.0f, 0.52f, 12.0f, 22.0f, fire);
-    circle(x, y - 8.0f, 3.5f + glow * 2.0f, core);
-    rect(x - 7.0f, y + 12.0f, 14.0f, 6.0f, COL_METAL_LT);
-    rect(x - 5.0f, y + 18.0f, 10.0f, 4.0f, COL_GOLD_DK);
-}
-
-static void crt_scope(float x, float y, float w, float h, const VizState *viz)
-{
-    int i;
-    rect(x - 2, y - 2, w + 4, h + 4, COL_METAL_DK);
-    rect(x, y, w, h, COL_CRT_BG);
-    C2D_DrawLine(x, y + h * 0.5f, RGBA(40, 80, 40, 80), x + w, y + h * 0.5f, RGBA(40, 80, 40, 80), 1.0f, 0.5f);
-    for (i = 1; i < VIZ_WAVE_N; i++) {
-        float x0 = x + (float)(i - 1) * w / (float)(VIZ_WAVE_N - 1);
-        float x1 = x + (float)i * w / (float)(VIZ_WAVE_N - 1);
-        float y0 = y + h * 0.5f - viz->wave[i - 1] * h * 0.42f;
-        float y1 = y + h * 0.5f - viz->wave[i] * h * 0.42f;
-        C2D_DrawLine(x0, y0, COL_CRT_PHOS, x1, y1, COL_AMBER_HI, 1.1f, 0.58f);
-    }
+    float f = (float)col / (float)(cols - 1) * (float)(VIZ_BINS - 1);
+    int i = (int)f;
+    float frac = f - (float)i;
+    float a = v->bins[i];
+    float b = (i + 1 < VIZ_BINS) ? v->bins[i + 1] : v->bins[i];
+    return a * (1.0f - frac) + b * frac;
 }
 
 void ui_draw_top(const Player *p)
 {
-    int i;
     const VizState *v = &p->viz;
+    const int led_cols = 64;
+    const int led_rows = 48;
+    const float cell_w = (float)TOP_W / (float)led_cols;
+    const float cell_h = (float)TOP_H / (float)led_rows;
+    const float mid = (float)led_rows * 0.5f;
+    static u32 tick;
+    int col, r, half;
+    float t, energy, bright;
+    int playing = (p->state == PLAYER_PLAYING);
 
-    rect(0, 0, TOP_W, TOP_H, COL_WOOD_DK);
-    rect(6, 4, TOP_W - 12, TOP_H - 8, COL_WOOD);
-    rect(8, 6, TOP_W - 16, 3, COL_WOOD_LT);
-    rect(14, 14, TOP_W - 28, TOP_H - 34, COL_METAL);
-    rect(16, 16, TOP_W - 32, TOP_H - 38, COL_METAL_LT);
-    rect(18, 18, TOP_W - 36, TOP_H - 42, COL_METAL);
+    tick++;
 
-    ui_draw_text("3DSong", 28, 22, 0.52f, COL_GOLD, 0);
-    ui_draw_text("STEREO INTEGRATED AMPLIFIER", 108, 26, 0.32f, COL_TEXT_DIM, 0);
-    ui_draw_text("TYPE " THREEDSONG_VERSION, 310, 22, 0.32f, COL_GOLD_DK, 0);
+    rect(0, 0, TOP_W, TOP_H, RGBA(6, 4, 2, 255));
 
-    /* power jewel */
-    circle(372, 30, 6.0f, COL_METAL_DK);
-    circle(372, 30, 4.2f, p->state == PLAYER_PLAYING ? COL_AMBER : RGBA(80, 40, 20, 255));
-    circle(371, 28.5f, 1.4f, COL_AMBER_HI);
-
-    vu_meter(78, 118, 52, v->vu_l, "L");
-    vu_meter(322, 118, 52, v->vu_r, "R");
-
-    for (i = 0; i < 4; i++) {
-        tube(148.0f + (float)i * 26.0f, 92.0f, v->tube[i]);
+    for (col = 0; col <= led_cols; col++) {
+        float x = (float)col * cell_w;
+        C2D_DrawLine(x, 0, RGBA(20, 12, 6, 80), x, (float)TOP_H, RGBA(20, 12, 6, 80), 1.0f, 0.35f);
     }
-    ui_draw_text("EL34", 174, 118, 0.28f, COL_TEXT_DIM, C2D_AlignCenter);
+    for (r = 0; r <= led_rows; r++) {
+        float y = (float)r * cell_h;
+        C2D_DrawLine(0, y, RGBA(20, 12, 6, 80), (float)TOP_W, y, RGBA(20, 12, 6, 80), 1.0f, 0.35f);
+    }
 
-    crt_scope(138, 132, 124, 46, v);
+    for (col = 0; col < led_cols; col++) {
+        t = (float)col / (float)(led_cols - 1);
+        energy = viz_col_energy(v, col, led_cols);
+        if (!playing) {
+            energy *= 0.35f;
+            energy += 0.06f * sinf((float)col * 0.35f + (float)tick * 0.04f);
+        }
+        energy = energy * 1.65f + 0.04f;
+        if (energy > 1.0f) energy = 1.0f;
+        if (energy < 0.0f) energy = 0.0f;
+        half = (int)(energy * (mid - 2.0f));
+        for (r = 0; r < half; r++) {
+            float x = (float)col * cell_w + 0.5f;
+            bright = 0.55f + ((float)r / (float)(half > 0 ? half : 1)) * 0.45f;
+            rect(x, (mid - 1.0f - (float)r) * cell_h + 0.5f, cell_w - 1.0f, cell_h - 1.0f, warm_led_color(t, bright));
+            rect(x, (mid + (float)r) * cell_h + 0.5f, cell_w - 1.0f, cell_h - 1.0f, warm_led_color(t, bright));
+        }
+    }
 
-    rect(18, 196, TOP_W - 36, 22, COL_WOOD_DK);
-    ui_draw_text(p->current_title[0] ? p->current_title : "NO SIGNAL", 24, 200, 0.42f, COL_TEXT, 0);
-    ui_draw_text(format_name(p->current_format), 300, 202, 0.36f, COL_ACCENT, 0);
+    if (playing) {
+        float pulse = 0.55f + v->vu_l * 0.45f;
+        float cx = TOP_W * 0.5f;
+        float cy = TOP_H * 0.5f;
+        int i;
+        for (i = 0; i < 24; i++) {
+            float ang = (float)i * (2.0f * (float)M_PI / 24.0f);
+            float wobble = sinf((float)tick * 0.05f + (float)i * 0.7f) * 0.08f;
+            float rad = (TOP_W * 0.38f) * (0.18f + (float)(i % 5) * 0.03f + wobble) * pulse;
+            float sx = cx + cosf(ang) * rad;
+            float sy = cy + sinf(ang) * rad * 0.55f;
+            float sr = 2.0f + pulse * 3.0f;
+            circle(sx, sy, sr + 2.0f, RGBA(255, 150, 40, (int)(40 + pulse * 50)));
+            circle(sx, sy, sr, RGBA(255, 220, 140, (int)(120 + pulse * 100)));
+        }
+    }
 }
 
 static int in_box(int px, int py, int x, int y, int w, int h)

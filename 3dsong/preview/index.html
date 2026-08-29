@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>3DSong 0.3 — Nintendo 3DS XL Old</title>
+  <title>3DSong 0.4 — Nintendo 3DS XL Old</title>
   <link rel="icon" href="favicon.png" />
   <link rel="stylesheet" href="3dsong.css" />
 </head>
@@ -11,8 +11,8 @@
   <div class="desk">
     <header class="mast">
       <div>
-        <h1>3DSong <span>0.3</span></h1>
-        <p>Плеер для Nintendo 3DS XL Old · верх — ламповый усилитель · низ — транспорт, папка и EQ</p>
+        <h1>3DSong <span>0.4</span></h1>
+        <p>Плеер для Nintendo 3DS XL Old · верх — LED-спектр · низ — транспорт, папка и EQ</p>
       </div>
       <label class="load">
         Загрузить файлы
@@ -23,14 +23,12 @@
     <div class="console" id="console">
       <div class="lid">
         <div class="bezel top-bezel">
-          <div class="screen-label">верхний экран · 400×240</div>
-          <canvas id="top" width="400" height="240" aria-label="Визуализация лампового усилителя"></canvas>
+          <canvas id="top" width="400" height="240" aria-label="LED-спектр"></canvas>
         </div>
       </div>
       <div class="hinge"><span></span><span></span><span></span></div>
       <div class="body">
         <div class="bezel bot-bezel">
-          <div class="screen-label">нижний экран · 320×240 · touch</div>
           <canvas id="bot" width="320" height="240" aria-label="Панель управления"></canvas>
         </div>
         <div class="face-buttons" aria-hidden="true">
