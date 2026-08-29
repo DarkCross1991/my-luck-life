@@ -5,6 +5,7 @@ build/
 /3dsong/3DSong.3dsx
 /3dsong/3DSong.smdh
 /3dsong/3DSong.elf
+/3dsong/3DSong.cia
 .DS_Store
 __pycache__/
 *.pyc
