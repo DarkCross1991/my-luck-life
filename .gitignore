@@ -1,0 +1,17 @@
+build/
+*.elf
+*.3dsx
+*.smdh
+*.cia
+*.o
+*.map
+.DS_Store
+__pycache__/
+*.pyc
+3dsong/tests/test_eq
+3dsong/tests/test_wav
+3dsong/tests/test_formats
+3dsong/tests/test_library
+3dsong/tests/test_player
+3dsong/tests/*.tmp
+3dsong/tests/tmp/
