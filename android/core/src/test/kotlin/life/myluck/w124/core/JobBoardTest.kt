@@ -83,6 +83,127 @@ class JobBoardTest {
     }
 
     @Test
+    fun ovpRelayPartNumberIsRecorded() {
+        val (state, jobs, tools) = load()
+        val ovp = state.nodes.first { it.id == "ovp-relay" }
+        assertTrue(ovp.lastDoneNote!!.contains("A2015403245"))
+        val part = tools.tools.first { it.id == "ovp-relay" }
+        assertTrue(part.have)
+        assertFalse(part.isTool)
+        assertTrue(part.note!!.contains("A2015403245"))
+        val log = state.logbook.first { it.id == "log-ovp-2026-08-27" }
+        assertTrue(log.body.contains("A2015403245"))
+        assertTrue(jobs.jobs.any { it.nodeId == "ovp-relay" })
+        assertFalse(ovp.open)
+        assertTrue(state.logbook.any { it.id == "log-ovp-rpm-2026-08-27" && it.body.contains("5000") })
+    }
+
+    @Test
+    fun diagnosticBoardSplitsRunningSymptoms() {
+        val (state, jobs, tools) = load()
+        assertTrue(state.deletedIds.contains("running-diagnosis"))
+        assertFalse(state.nodes.any { it.id == "running-diagnosis" })
+        val views = NodeStatus.views(state, today, jobs.jobs, tools.tools)
+        assertFalse(state.nodes.first { it.id == "idle-valve" }.open)
+        assertFalse(state.nodes.first { it.id == "rpm-drive" }.open)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "idle-valve" }.urgency)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "rpm-drive" }.urgency)
+        assertEquals("Педаль в Drive", state.nodes.first { it.id == "rpm-drive" }.title)
+        val tps = state.nodes.first { it.id == "tps-sensor" }
+        assertTrue(tps.open)
+        assertEquals("urgent", tps.priority)
+        val tpsJob = jobs.jobs.first { it.nodeId == "tps-sensor" }
+        assertTrue(tpsJob.steps.size >= 2)
+        assertTrue(tpsJob.toolIds.contains("airflow-pot"))
+        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "tps-sensor" }.urgency)
+        val abs = state.nodes.first { it.id == "abs" }
+        assertTrue(abs.open)
+        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "abs" }.urgency)
+        assertFalse(state.nodes.first { it.id == "fuel-smell" }.open)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "fuel-smell" }.urgency)
+        assertFalse(state.nodes.first { it.id == "ovp-relay" }.open)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "ovp-relay" }.urgency)
+        assertTrue(state.logbook.any { it.id == "log-hot-drive-2026-08-28" })
+        assertTrue(state.logbook.any { it.id == "log-exhaust-smell-2026-08-28" })
+        val beltJob = jobs.jobs.first { it.nodeId == "accessory-belt-tensioner" }
+        assertTrue(beltJob.what.contains("завален"))
+        assertTrue(beltJob.steps.any { it.contains("Febi 06418") })
+        assertTrue(beltJob.steps.any { it.contains("6PK1885") })
+    }
+
+    @Test
+    fun airAndCabinFiltersAreRecorded() {
+        val (state, jobs, tools) = load()
+        val air = tools.tools.first { it.id == "air-filter" }
+        assertFalse(air.have)
+        assertFalse(air.isTool)
+        assertTrue(air.note!!.contains("LX 61"))
+        assertTrue(air.note!!.contains("A003 094 38 04"))
+        val cabin = tools.tools.first { it.id == "cabin-filter" }
+        assertFalse(cabin.have)
+        assertTrue(cabin.note!!.contains("нет"))
+        assertTrue(cabin.note!!.contains("A124 830 00 18"))
+        assertTrue(state.logbook.any { it.id == "log-filters-2026-08-29" })
+        val job = jobs.jobs.first { it.nodeId == "air-filter" }
+        assertTrue(job.steps.size >= 2)
+        assertTrue(job.toolIds.contains("air-filter"))
+        assertTrue(job.steps.any { it.contains("Не покупать") || it.contains("не брать") })
+        val node = state.nodes.first { it.id == "air-filter" }
+        assertFalse(node.open)
+        assertTrue(node.lastDoneNote!!.contains("не требуется"))
+        val views = NodeStatus.views(state, today, jobs.jobs, tools.tools)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "air-filter" }.urgency)
+    }
+
+    @Test
+    fun tpsTestIsRecordedAsOhms() {
+        val (state, jobs, tools) = load()
+        val log = state.logbook.first { it.id == "log-tps-2026-08-30" }
+        assertTrue(log.body.contains("1,3"))
+        assertTrue(log.body.contains("кОм"))
+        assertTrue(log.body.contains("A000 074 02 36"))
+        assertTrue(log.body.contains("3437224035"))
+        assertTrue(log.body.contains("аварийном"))
+        assertTrue(log.body.contains("A000 074 01 36"))
+        val pot = tools.tools.first { it.id == "airflow-pot" }
+        assertFalse(pot.have)
+        assertTrue(pot.note!!.contains("F 026 T03 021"))
+        assertTrue(pot.note!!.contains("006 153 86 28"))
+        assertTrue(pot.note!!.contains("3437224035"))
+        assertTrue(pot.note!!.contains("A000 074 01 36") || pot.note!!.contains("01 36"))
+        val idleJob = jobs.jobs.first { it.nodeId == "idle-valve" }
+        assertTrue(idleJob.toolIds.contains("airflow-pot"))
+        assertTrue(idleJob.steps.any { it.contains("1,3") })
+        val tpsJob = jobs.jobs.first { it.nodeId == "tps-sensor" }
+        assertTrue(tpsJob.toolIds.contains("torx-t15"))
+        assertTrue(tpsJob.toolIds.contains("multimeter"))
+        assertTrue(tpsJob.steps.any { it.contains("T15") })
+        val wiperJob = jobs.jobs.first { it.nodeId == "wiper-linkage" }
+        assertTrue(wiperJob.toolIds.contains("wiper-arm-puller"))
+        assertTrue(wiperJob.toolIds.contains("two-jaw-puller"))
+        assertTrue(wiperJob.steps.any { it.contains("Gleitpaste") })
+        assertTrue(wiperJob.steps.any { it.contains("не поддевать") })
+    }
+
+    @Test
+    fun wiresCompressionAndPsFluidRecorded() {
+        val (state, jobs, tools) = load()
+        val wires = state.nodes.first { it.id == "ignition-wires" }
+        assertFalse(wires.open)
+        assertEquals("2026-08-30", wires.lastDoneAt)
+        assertTrue(tools.tools.first { it.id == "ignition-wires-new" }.have)
+        assertTrue(state.logbook.any { it.id == "log-wires-2026-08-30" })
+        val oil = state.nodes.first { it.id == "oil-consumption" }
+        assertTrue(oil.lastDoneNote!!.contains("10,3"))
+        assertTrue(oil.lastDoneNote!!.contains("10,9"))
+        assertTrue(state.logbook.first { it.id == "log-compression-2026-08-30" }.body.contains("10,5"))
+        val ps = state.nodes.first { it.id == "ps-fluid" }
+        assertFalse(ps.open)
+        assertTrue(ps.lastDoneNote!!.contains("красн"))
+        assertTrue(jobs.jobs.first { it.nodeId == "ps-fluid" }.what.contains("тетрадке"))
+    }
+
+    @Test
     fun daysRuRussianPlural() {
         assertEquals("1 день", NodeStatus.daysRu(1))
         assertEquals("2 дня", NodeStatus.daysRu(2))
