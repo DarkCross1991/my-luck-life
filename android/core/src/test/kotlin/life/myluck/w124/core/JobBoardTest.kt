@@ -154,14 +154,15 @@ class JobBoardTest {
     }
 
     @Test
-    fun tpsTestIsRecordedAsVoltsNotAngle() {
+    fun tpsTestIsRecordedAsOhms() {
         val (state, jobs, tools) = load()
         val log = state.logbook.first { it.id == "log-tps-2026-08-30" }
-        assertTrue(log.body.contains("напряжение"))
-        assertTrue(log.body.contains("5.0"))
+        assertTrue(log.body.contains("омы"))
+        assertTrue(log.body.contains("кОм"))
         val pot = tools.tools.first { it.id == "airflow-pot" }
         assertFalse(pot.have)
-        assertTrue(pot.note!!.contains("не покупать") || pot.note!!.contains("Не заказывать"))
+        assertTrue(pot.note!!.contains("омы"))
+        assertTrue(pot.note!!.contains("Не заказывать") || pot.note!!.contains("не заказывать"))
         val idleJob = jobs.jobs.first { it.nodeId == "idle-valve" }
         assertTrue(idleJob.toolIds.contains("airflow-pot"))
         assertTrue(idleJob.steps.any { it.contains("5.0") })
