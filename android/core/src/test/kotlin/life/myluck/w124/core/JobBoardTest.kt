@@ -157,7 +157,7 @@ class JobBoardTest {
     fun tpsTestIsRecordedAsVoltsNotAngle() {
         val (state, jobs, tools) = load()
         val log = state.logbook.first { it.id == "log-tps-2026-08-30" }
-        assertTrue(log.body.contains("вольт"))
+        assertTrue(log.body.contains("напряжение"))
         assertTrue(log.body.contains("5.0"))
         val pot = tools.tools.first { it.id == "airflow-pot" }
         assertFalse(pot.have)
