@@ -164,11 +164,13 @@ class JobBoardTest {
         assertTrue(log.body.contains("A000 074 02 36"))
         assertTrue(log.body.contains("3437224035"))
         assertTrue(log.body.contains("аварийном"))
+        assertTrue(log.body.contains("A000 074 01 36"))
         val pot = tools.tools.first { it.id == "airflow-pot" }
         assertFalse(pot.have)
         assertTrue(pot.note!!.contains("F 026 T03 021"))
         assertTrue(pot.note!!.contains("006 153 86 28"))
         assertTrue(pot.note!!.contains("3437224035"))
+        assertTrue(pot.note!!.contains("A000 074 01 36") || pot.note!!.contains("01 36"))
         val idleJob = jobs.jobs.first { it.nodeId == "idle-valve" }
         assertTrue(idleJob.toolIds.contains("airflow-pot"))
         assertTrue(idleJob.steps.any { it.contains("1,3") })
