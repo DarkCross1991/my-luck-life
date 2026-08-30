@@ -147,7 +147,7 @@ class JobBoardTest {
         val job = jobs.jobs.first { it.nodeId == "air-filter" }
         assertTrue(job.steps.size >= 2)
         assertTrue(job.toolIds.contains("air-filter"))
-        assertTrue(job.steps.any { it.contains("не покупать") })
+        assertTrue(job.steps.any { it.contains("Не покупать") || it.contains("не брать") })
         val node = state.nodes.first { it.id == "air-filter" }
         assertFalse(node.open)
         assertTrue(node.lastDoneNote!!.contains("не требуется"))
