@@ -157,15 +157,16 @@ class JobBoardTest {
     fun tpsTestIsRecordedAsOhms() {
         val (state, jobs, tools) = load()
         val log = state.logbook.first { it.id == "log-tps-2026-08-30" }
-        assertTrue(log.body.contains("омы"))
+        assertTrue(log.body.contains("1,3"))
         assertTrue(log.body.contains("кОм"))
+        assertTrue(log.body.contains("A000 074 02 36"))
         val pot = tools.tools.first { it.id == "airflow-pot" }
         assertFalse(pot.have)
-        assertTrue(pot.note!!.contains("омы"))
-        assertTrue(pot.note!!.contains("Не заказывать") || pot.note!!.contains("не заказывать"))
+        assertTrue(pot.note!!.contains("F 026 T03 021"))
+        assertTrue(pot.note!!.contains("006 153 86 28"))
         val idleJob = jobs.jobs.first { it.nodeId == "idle-valve" }
         assertTrue(idleJob.toolIds.contains("airflow-pot"))
-        assertTrue(idleJob.steps.any { it.contains("5.0") })
+        assertTrue(idleJob.steps.any { it.contains("1,3") })
     }
 
     @Test
