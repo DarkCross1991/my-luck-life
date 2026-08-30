@@ -172,6 +172,15 @@ class JobBoardTest {
         val idleJob = jobs.jobs.first { it.nodeId == "idle-valve" }
         assertTrue(idleJob.toolIds.contains("airflow-pot"))
         assertTrue(idleJob.steps.any { it.contains("1,3") })
+        val tpsJob = jobs.jobs.first { it.nodeId == "tps-sensor" }
+        assertTrue(tpsJob.toolIds.contains("torx-t15"))
+        assertTrue(tpsJob.toolIds.contains("multimeter"))
+        assertTrue(tpsJob.steps.any { it.contains("T15") })
+        val wiperJob = jobs.jobs.first { it.nodeId == "wiper-linkage" }
+        assertTrue(wiperJob.toolIds.contains("wiper-arm-puller"))
+        assertTrue(wiperJob.toolIds.contains("two-jaw-puller"))
+        assertTrue(wiperJob.steps.any { it.contains("Gleitpaste") })
+        assertTrue(wiperJob.steps.any { it.contains("не поддевать") })
     }
 
     @Test
