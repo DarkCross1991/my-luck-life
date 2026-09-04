@@ -49,11 +49,12 @@ pack_cia() {
     return 0
   fi
   mkdir -p "$ROOT/build"
-  "$bannertool" makebanner -i "$ROOT/meta/banner.png" -a "$ROOT/meta/audio.wav" -o "$ROOT/build/banner.bin"
+  "$bannertool" makebanner -i "$ROOT/meta/banner.png" -a "$ROOT/meta/audio.wav" -o /tmp/3dsong-banner.bin
+  cp -f /tmp/3dsong-banner.bin "$ROOT/build/banner.bin" 2>/dev/null || true
   "$makerom" -f cia -o "$ROOT/dist/3DSong.cia" \
     -rsf "$ROOT/meta/cia.rsf" -target t \
     -elf "$ROOT/3DSong.elf" -icon "$ROOT/3DSong.smdh" \
-    -banner "$ROOT/build/banner.bin" -desc app:7
+    -banner /tmp/3dsong-banner.bin -desc app:7
   echo "Wrote $ROOT/dist/3DSong.cia"
 }
 
