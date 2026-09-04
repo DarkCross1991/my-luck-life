@@ -1,4 +1,5 @@
-/* 3DSong 0.4 web preview — layout constants match 3dsong/include/ui_layout.h */
+/* 3DSong 0.5 mockup — layout: 3dsong/include/ui_layout.h
+ * Marquee: MARQUEE_WAIT_MS 5000, MARQUEE_SPEED_PX 10 — see ui_layout.h */
 "use strict";
 
 const TOP_W = 400, TOP_H = 240, BOT_W = 320, BOT_H = 240;
@@ -7,18 +8,27 @@ const PREV = { x: 6, y: 48, w: 36, h: 30 };
 const PLAY = { x: 46, y: 46, w: 48, h: 34 };
 const NEXT = { x: 98, y: 48, w: 36, h: 30 };
 const STOP = { x: 138, y: 48, w: 36, h: 30 };
-const EQBTN = { x: 180, y: 48, w: 62, h: 30 };
-const FLAT = { x: 248, y: 48, w: 66, h: 30 };
+const EQBTN = { x: 180, y: 48, w: 36, h: 30 };
+const ORDBTN = { x: 222, y: 48, w: 36, h: 30 };
+const RPTBTN = { x: 264, y: 48, w: 36, h: 30 };
 const FOLDER_Y = 86, FOLDER_H = 16;
 const LIST_Y = 104, LIST_H = 136, ROW_H = 17;
 const LIST_ROWS = Math.floor(LIST_H / ROW_H);
-const EQ_BACK = { x: 8, y: 6, w: 64, h: 26 };
+const PL_MARGIN = 20;
+const PL_TOP_LIST = { x: 20, y: 20, w: 348, h: 200 };
+const PL_SCROLL = { x: 368, y: 20, w: 10, h: 200, thumbH: 20 };
+const PL_BOT_LIST = { x: 20, y: 20, w: 280, h: 200 };
 const EQ_SLIDER_Y = 62, EQ_SLIDER_H = 148, EQ_SLIDER_W = 18, EQ_COL0 = 46, EQ_COL_GAP = 90;
 const BANDS = [
   { name: "BASS", hz: 110, q: 0.7 },
   { name: "MID", hz: 900, q: 0.85 },
   { name: "TREBLE", hz: 6500, q: 0.7 },
 ];
+const ORDER_LABELS = ["SEQ", "S1", "S*"];
+const REPEAT_LABELS = ["R-", "R↻", "R1"];
+/* Cyrillic + Latin — same stack as 3DS UI (DejaVu / system serif) */
+const FONT_SERIF = '"Palatino Linotype", "DejaVu Serif", "Times New Roman", Palatino, serif';
+const FONT_SANS = '"Segoe UI", "DejaVu Sans", sans-serif';
 
 const topCanvas = document.getElementById("top");
 const botCanvas = document.getElementById("bot");
@@ -32,13 +42,19 @@ const state = {
   scroll: 0,
   index: -1,
   playing: false,
-  shuffle: false,
+  playOrder: 0,
   repeat: 0,
   eq: [0, 0, 0],
   title: "NO SIGNAL",
   format: "FILE",
   error: "",
   screen: "player",
+  plFocus: "top",
+  plIndex: 0,
+  plCursor: 0,
+  plSongCursor: 0,
+  plSongScroll: 0,
+  playlists: [],
   cwd: "sdmc:/Music",
   currentPath: "",
   userFiles: [],
@@ -73,15 +89,135 @@ function fmtName(name) {
 }
 
 function parentOf(path) {
-  if (path === "sdmc:/Music/Live") return "sdmc:/Music";
   if (path === "sdmc:/Music") return "sdmc:/";
+  if (path.startsWith("sdmc:/Music/")) return "sdmc:/Music";
   return "sdmc:/";
+}
+
+function playlistLabel(pl) {
+  return pl ? pl.name : "";
 }
 
 function truncLeft(path, maxChars) {
   if (!path) return "";
   if (path.length <= maxChars) return path;
   return "..." + path.slice(-(maxChars - 3));
+}
+
+function currentPlaylist() {
+  return state.playlists[state.plIndex] || state.playlists[0];
+}
+
+function panelBg(ctx, w, h) {
+  ctx.fillStyle = "#16100c";
+  ctx.fillRect(0, 0, w, h);
+}
+
+function scrollThumbY(count, selected, trackY, trackH, thumbH) {
+  if (count <= 1) return trackY + (trackH - thumbH) * 0.5;
+  const seg = trackH / count;
+  return trackY + seg * selected + seg * 0.5 - thumbH * 0.5;
+}
+
+function loadPlaylistTracks(pl) {
+  if (!pl) return;
+  state.cwd = pl.path;
+  state.tracks = pl.songs.map((s) => ({
+    kind: "file",
+    title: s.title,
+    format: s.format,
+    path: pl.path + "/" + s.title,
+    buffer: s.buffer,
+    url: s.url,
+    duration: s.duration,
+  }));
+  state.cursor = 0;
+  state.scroll = 0;
+}
+
+function switchPlaylist(dir) {
+  if (!state.playlists.length) return;
+  state.plIndex = (state.plIndex + dir + state.playlists.length) % state.playlists.length;
+  state.plCursor = state.plIndex;
+  loadPlaylistTracks(currentPlaylist());
+}
+
+function cycleOrder() {
+  state.playOrder = (state.playOrder + 1) % 3;
+}
+
+function cycleRepeat() {
+  state.repeat = (state.repeat + 1) % 3;
+}
+
+function openPlaylists() {
+  state.screen = "playlists";
+  state.plFocus = "top";
+  state.plCursor = state.plIndex;
+  state.plSongCursor = 0;
+  state.plSongScroll = 0;
+}
+
+function closePlaylists() {
+  state.screen = "player";
+}
+
+function togglePlFocus() {
+  if (state.screen !== "playlists") return;
+  state.plFocus = state.plFocus === "top" ? "bottom" : "top";
+}
+
+function onButtonA() {
+  if (state.screen === "eq") {
+    state.screen = "player";
+    return;
+  }
+  if (state.screen === "playlists") {
+    if (state.plFocus === "top") {
+      state.plIndex = state.plCursor;
+      loadPlaylistTracks(currentPlaylist());
+    } else {
+      const pl = state.playlists[state.plCursor];
+      const song = pl && pl.songs[state.plSongCursor];
+      if (song) {
+        state.plIndex = state.plCursor;
+        loadPlaylistTracks(pl);
+        const idx = state.tracks.findIndex((t) => t.title === song.title);
+        if (idx >= 0) openIndex(idx, true);
+        closePlaylists();
+      }
+    }
+    return;
+  }
+  const tr = state.tracks[state.cursor];
+  if (tr && tr.kind === "file" && state.index === state.cursor && currentKind) {
+    toggle();
+    return;
+  }
+  if (tr && tr.kind === "file") openIndex(state.cursor, true);
+  else if (tr) activate(state.cursor);
+}
+
+function onButtonB() {
+  if (state.screen === "eq") {
+    if (state.playing) pause();
+    state.screen = "player";
+    return;
+  }
+  if (state.screen === "playlists") {
+    closePlaylists();
+    return;
+  }
+  if (state.playing) pause();
+}
+
+function onButtonX() {
+  stop();
+}
+
+function onButtonY() {
+  if (state.screen === "playlists") togglePlFocus();
+  else openPlaylists();
 }
 
 function ensureAudio() {
@@ -160,8 +296,21 @@ function rebuildList() {
     items.push({ kind: "dir", title: "Music", path: "sdmc:/Music", format: "" });
   }
   if (state.cwd === "sdmc:/Music") {
-    items.push({ kind: "dir", title: "Live", path: "sdmc:/Music/Live", format: "" });
-    demoTracks.forEach((tr) => items.push({ ...tr, kind: "file", folder: "sdmc:/Music" }));
+    state.playlists.forEach((pl) => {
+      items.push({ kind: "dir", title: pl.name, path: pl.path, format: "" });
+    });
+  } else if (state.cwd.startsWith("sdmc:/Music/")) {
+    const pl = state.playlists.find((p) => p.path === state.cwd);
+    if (pl) {
+      pl.songs.forEach((s) => {
+        items.push({
+          ...s,
+          kind: "file",
+          folder: pl.path,
+          path: `${pl.path}/${s.title}`,
+        });
+      });
+    }
   }
   state.userFiles.filter((f) => f.folder === state.cwd).forEach((f) => items.push(f));
   state.tracks = items;
@@ -177,9 +326,13 @@ function openFolder(path) {
 }
 
 function onEnded() {
-  if (state.repeat === 1) {
+  if (state.repeat === 2) {
     seekFrac(0);
     play();
+    return;
+  }
+  if (state.repeat === 0) {
+    stop();
     return;
   }
   next(1);
@@ -323,14 +476,17 @@ function next(dir) {
   if (!files.length) return;
   let pos = files.indexOf(state.index);
   let i;
-  if (state.shuffle && files.length > 1) {
+  if (state.playOrder === 1 && files.length > 1) {
     i = files[Math.floor(Math.random() * files.length)];
     while (i === state.index && files.length > 1) i = files[Math.floor(Math.random() * files.length)];
   } else {
     if (pos < 0) pos = dir > 0 ? -1 : 0;
     pos += dir;
-    if (pos < 0) pos = state.repeat === 2 ? files.length - 1 : 0;
-    if (pos >= files.length) pos = state.repeat === 2 ? 0 : files.length - 1;
+    if (pos < 0) pos = state.repeat === 1 ? files.length - 1 : 0;
+    if (pos >= files.length) {
+      if (state.repeat === 1) pos = 0;
+      else return;
+    }
     i = files[pos];
   }
   openIndex(i, true);
@@ -398,10 +554,36 @@ async function bootDemos() {
     ],
   });
   demoTracks = [
-    { title: "Filament Warm-up", format: "DEMO", buffer: a, duration: a.duration, path: "sdmc:/Music/filament" },
-    { title: "Amber Trio", format: "DEMO", buffer: b, duration: b.duration, path: "sdmc:/Music/amber" },
+    { title: "Filament Warm-up", format: "DEMO", buffer: a, duration: a.duration, path: "sdmc:/Music/Demo/filament" },
+    { title: "Amber Trio", format: "DEMO", buffer: b, duration: b.duration, path: "sdmc:/Music/Demo/amber" },
   ];
-  openFolder("sdmc:/Music");
+  state.playlists = [
+    {
+      name: "Demo",
+      path: "sdmc:/Music/Demo",
+      songs: [
+        { title: "Filament Warm-up", format: "DEMO", buffer: a, duration: a.duration },
+        { title: "Amber Trio", format: "DEMO", buffer: b, duration: b.duration },
+      ],
+    },
+    { name: "Live", path: "sdmc:/Music/Live", songs: [] },
+    {
+      name: "Музыка_в_дорогу",
+      path: "sdmc:/Music/Музыка_в_дорогу",
+      songs: [
+        { title: "Утро на трассе", format: "DEMO", buffer: a, duration: a.duration },
+        { title: "Highway Sunrise", format: "DEMO", buffer: b, duration: b.duration },
+      ],
+    },
+    {
+      name: "Jazz & Blues",
+      path: "sdmc:/Music/Jazz & Blues",
+      songs: [{ title: "Amber Trio", format: "DEMO", buffer: b, duration: b.duration }],
+    },
+  ];
+  state.plIndex = 0;
+  state.plCursor = 0;
+  loadPlaylistTracks(state.playlists[0]);
 }
 
 function addFiles(fileList) {
@@ -518,6 +700,105 @@ function drawLedCell(ctx, col, row, color, alpha) {
 }
 
 function drawTop() {
+  if (state.screen === "playlists") drawPlaylistsTop();
+  else drawLedTop();
+}
+
+function drawPlaylistsTop() {
+  const ctx = tctx;
+  const pls = state.playlists;
+  const sel = state.plCursor;
+  const focus = state.plFocus === "top";
+  const vis = 8;
+  let i, y, ty;
+
+  panelBg(ctx, TOP_W, TOP_H);
+  ctx.strokeStyle = focus ? "#d4a848" : "#3a2a18";
+  ctx.lineWidth = focus ? 2 : 1;
+  ctx.strokeRect(PL_TOP_LIST.x - 1, PL_TOP_LIST.y - 1, PL_TOP_LIST.w + 2, PL_TOP_LIST.h + 2);
+  ctx.fillStyle = "#20160e";
+  ctx.fillRect(PL_TOP_LIST.x, PL_TOP_LIST.y, PL_TOP_LIST.w, PL_TOP_LIST.h);
+
+  ctx.fillStyle = "#d4a848";
+  ctx.font = `11px ${FONT_SERIF}`;
+  ctx.fillText("ПЛЕЙЛИСТЫ", PL_TOP_LIST.x + 6, PL_TOP_LIST.y + 14);
+  ctx.fillStyle = "#8a7060";
+  ctx.font = `8px ${FONT_SANS}`;
+  ctx.fillText("A — выбрать · Y — предпросмотр", PL_TOP_LIST.x + 120, PL_TOP_LIST.y + 14);
+
+  for (i = 0; i < vis; i++) {
+    const idx = Math.max(0, sel - 3) + i;
+    y = PL_TOP_LIST.y + 22 + i * 20;
+    if (idx >= pls.length) break;
+    if (idx === sel) {
+      ctx.fillStyle = "#5a3818";
+      ctx.fillRect(PL_TOP_LIST.x + 2, y - 2, PL_TOP_LIST.w - 4, 18);
+    }
+    ctx.fillStyle = idx === state.plIndex ? "#e88c30" : "#f0e2c4";
+    ctx.font = `11px ${FONT_SERIF}`;
+    ctx.fillText(pls[idx].name, PL_TOP_LIST.x + 8, y + 11);
+    ctx.fillStyle = "#8a7060";
+    ctx.font = `8px ${FONT_SANS}`;
+    ctx.textAlign = "right";
+    ctx.fillText(String(pls[idx].songs.length), PL_TOP_LIST.x + PL_TOP_LIST.w - 8, y + 11);
+    ctx.textAlign = "left";
+  }
+
+  ctx.fillStyle = "#1c1208";
+  ctx.fillRect(PL_SCROLL.x, PL_SCROLL.y, PL_SCROLL.w, PL_SCROLL.h);
+  ty = scrollThumbY(pls.length, sel, PL_SCROLL.y, PL_SCROLL.h, PL_SCROLL.thumbH);
+  ctx.fillStyle = "#d4a848";
+  ctx.fillRect(PL_SCROLL.x, ty, PL_SCROLL.w, PL_SCROLL.thumbH);
+}
+
+function drawPlaylistsBot() {
+  const ctx = bctx;
+  const pl = state.playlists[state.plCursor];
+  const songs = pl ? pl.songs : [];
+  const sel = state.plSongCursor;
+  const focus = state.plFocus === "bottom";
+  const vis = 9;
+  let i, y;
+
+  panelBg(ctx, BOT_W, BOT_H);
+  ctx.strokeStyle = focus ? "#d4a848" : "#3a2a18";
+  ctx.lineWidth = focus ? 2 : 1;
+  ctx.strokeRect(PL_BOT_LIST.x - 1, PL_BOT_LIST.y - 1, PL_BOT_LIST.w + 2, PL_BOT_LIST.h + 2);
+  ctx.fillStyle = "#20160e";
+  ctx.fillRect(PL_BOT_LIST.x, PL_BOT_LIST.y, PL_BOT_LIST.w, PL_BOT_LIST.h);
+
+  ctx.fillStyle = "#d4a848";
+  ctx.font = `10px ${FONT_SERIF}`;
+  ctx.fillText(pl ? playlistLabel(pl) : "", PL_BOT_LIST.x + 6, PL_BOT_LIST.y + 14);
+  ctx.fillStyle = "#8a7060";
+  ctx.font = `8px ${FONT_SANS}`;
+  ctx.fillText(focus ? "A — играть с очередью" : "Y — управление здесь", PL_BOT_LIST.x + 6, PL_BOT_LIST.y + 26);
+
+  if (!songs.length) {
+    ctx.fillStyle = "#8a7060";
+    ctx.font = `10px ${FONT_SANS}`;
+    ctx.fillText("Плейлист пуст", PL_BOT_LIST.x + 8, PL_BOT_LIST.y + 50);
+    return;
+  }
+
+  for (i = 0; i < vis; i++) {
+    const idx = state.plSongScroll + i;
+    y = PL_BOT_LIST.y + 34 + i * 17;
+    if (idx >= songs.length) break;
+    if (focus && idx === sel) {
+      ctx.fillStyle = "#5a3818";
+      ctx.fillRect(PL_BOT_LIST.x + 2, y - 2, PL_BOT_LIST.w - 4, 15);
+    }
+    ctx.fillStyle = "#f0e2c4";
+    ctx.font = `10px ${FONT_SERIF}`;
+    ctx.fillText(songs[idx].title, PL_BOT_LIST.x + 8, y + 10);
+    ctx.fillStyle = "#8a7060";
+    ctx.font = `8px ${FONT_SANS}`;
+    ctx.fillText(songs[idx].format, PL_BOT_LIST.x + PL_BOT_LIST.w - 40, y + 10);
+  }
+}
+
+function drawLedTop() {
   const ctx = tctx;
   const mid = LED_ROWS / 2;
   let col, row, t, energy, half, r, bright, color, i;
@@ -621,11 +902,11 @@ function drawVu(ctx, cx, cy, r, level, tag) {
   ctx.fillStyle = "#d4a848";
   ctx.fill();
   ctx.fillStyle = "#d4a848";
-  ctx.font = "9px serif";
+  ctx.font = `9px ${FONT_SERIF}`;
   ctx.textAlign = "center";
   ctx.fillText(tag, cx, cy + r - 10);
   ctx.fillStyle = "#8a8070";
-  ctx.font = "8px sans-serif";
+  ctx.font = `8px ${FONT_SANS}`;
   ctx.fillText("VU", cx, cy + 8);
   ctx.textAlign = "left";
 }
@@ -700,18 +981,16 @@ function btn(ctx, box, hot) {
 
 function drawEqScreen() {
   const ctx = bctx;
-  ctx.fillStyle = "#16100c";
-  ctx.fillRect(0, 0, BOT_W, BOT_H);
+  panelBg(ctx, BOT_W, BOT_H);
   ctx.fillStyle = "#20160e";
-  ctx.fillRect(0, 0, BOT_W, 38);
-  btn(ctx, EQ_BACK, false);
-  ctx.fillStyle = "#f0e2c4";
-  ctx.font = "11px Palatino, serif";
-  ctx.textAlign = "center";
-  ctx.fillText("BACK", EQ_BACK.x + EQ_BACK.w / 2, EQ_BACK.y + 18);
+  ctx.fillRect(0, 0, BOT_W, 32);
   ctx.fillStyle = "#d4a848";
-  ctx.font = "13px Palatino, serif";
-  ctx.fillText("EQUALIZER", 160, 24);
+  ctx.font = `13px ${FONT_SERIF}`;
+  ctx.textAlign = "center";
+  ctx.fillText("EQUALIZER", BOT_W / 2, 22);
+  ctx.fillStyle = "#8a7060";
+  ctx.font = `8px ${FONT_SANS}`;
+  ctx.fillText("B — назад", BOT_W / 2, BOT_H - 8);
   ctx.textAlign = "left";
 
   for (let i = 0; i < 3; i++) {
@@ -721,7 +1000,7 @@ function drawEqScreen() {
     const h = g * fill;
     const tx = cx - EQ_SLIDER_W / 2;
     ctx.fillStyle = "#a08c64";
-    ctx.font = "9px sans-serif";
+    ctx.font = `9px ${FONT_SANS}`;
     ctx.textAlign = "center";
     ctx.fillText(BANDS[i].name, cx, EQ_SLIDER_Y - 6);
     ctx.fillStyle = "#1c1a16";
@@ -743,13 +1022,13 @@ function drawEqScreen() {
 
 function drawPlayerScreen() {
   const ctx = bctx;
-  ctx.fillStyle = "#16100c";
-  ctx.fillRect(0, 0, BOT_W, BOT_H);
+  const pl = currentPlaylist();
+  panelBg(ctx, BOT_W, BOT_H);
 
   ctx.fillStyle = "#f0e2c4";
-  ctx.font = "11px Palatino, serif";
-  ctx.fillText(state.title || "Выберите трек в папке", 8, 14);
-  ctx.font = "9px sans-serif";
+  ctx.font = `11px ${FONT_SERIF}`;
+  ctx.fillText(state.title || "Выберите трек", 8, 14);
+  ctx.font = `9px ${FONT_SANS}`;
   if (state.error) {
     ctx.fillStyle = "#c83020";
     ctx.fillText(state.error, 8, 26);
@@ -793,23 +1072,26 @@ function drawPlayerScreen() {
   btn(ctx, STOP, false);
   ctx.fillStyle = "#f0e2c4";
   ctx.fillRect(STOP.x + (STOP.w - 12) / 2, STOP.y + (STOP.h - 12) / 2, 12, 12);
-  btn(ctx, EQBTN, state.screen === "eq");
+
+  btn(ctx, EQBTN, false);
+  btn(ctx, ORDBTN, state.playOrder > 0);
+  btn(ctx, RPTBTN, state.repeat > 0);
   ctx.fillStyle = "#f0e2c4";
-  ctx.font = "12px Palatino, serif";
+  ctx.font = `10px ${FONT_SERIF}`;
   ctx.textAlign = "center";
   ctx.fillText("EQ", EQBTN.x + EQBTN.w / 2, EQBTN.y + 20);
-  btn(ctx, FLAT, false);
-  ctx.fillText("FLAT", FLAT.x + FLAT.w / 2, FLAT.y + 20);
+  ctx.fillText(ORDER_LABELS[state.playOrder], ORDBTN.x + ORDBTN.w / 2, ORDBTN.y + 20);
+  ctx.fillText(REPEAT_LABELS[state.repeat], RPTBTN.x + RPTBTN.w / 2, RPTBTN.y + 20);
   ctx.textAlign = "left";
 
   ctx.fillStyle = "#20160e";
   ctx.fillRect(0, FOLDER_Y, BOT_W, FOLDER_H);
   ctx.fillStyle = "#d4a848";
-  ctx.font = "9px sans-serif";
-  ctx.fillText(truncLeft(state.cwd, 36), 6, FOLDER_Y + 12);
-  ctx.fillStyle = "#e88c30";
+  ctx.font = `9px ${FONT_SANS}`;
+  ctx.fillText(playlistLabel(pl) || truncLeft(state.cwd.replace(/^sdmc:\/Music\//, ""), 34), 6, FOLDER_Y + 12);
+  ctx.fillStyle = "#8a7060";
   ctx.textAlign = "right";
-  ctx.fillText("LOAD", BOT_W - 8, FOLDER_Y + 12);
+  ctx.fillText("←→ плейлист", BOT_W - 8, FOLDER_Y + 12);
   ctx.textAlign = "left";
 
   const vis = LIST_ROWS;
@@ -835,7 +1117,7 @@ function drawPlayerScreen() {
       ctx.fillStyle = "#d4a848";
       ctx.fillRect(6, y + 4, 5, 2);
     }
-    ctx.font = "10px Palatino, serif";
+    ctx.font = `10px ${FONT_SERIF}`;
     if (tr.kind === "parent") {
       ctx.fillStyle = "#a08c64";
       ctx.fillText("..", 16, y + 12);
@@ -846,7 +1128,7 @@ function drawPlayerScreen() {
       ctx.fillStyle = "#f0e2c4";
       ctx.fillText(tr.title.slice(0, 28), 16, y + 12);
       ctx.fillStyle = "#a08c64";
-      ctx.font = "8px sans-serif";
+      ctx.font = `8px ${FONT_SANS}`;
       ctx.fillText(tr.format, 268, y + 12);
       anyFile++;
     }
@@ -854,19 +1136,19 @@ function drawPlayerScreen() {
   const hasFile = state.tracks.some((t) => t.kind === "file");
   if (!state.tracks.length) {
     ctx.fillStyle = "#a08c64";
-    ctx.font = "10px sans-serif";
+    ctx.font = `10px ${FONT_SANS}`;
     ctx.fillText("Нет файлов. LOAD или drag-and-drop", 8, LIST_Y + 24);
   } else if (!hasFile) {
     ctx.fillStyle = "#a08c64";
-    ctx.font = "10px sans-serif";
+    ctx.font = `10px ${FONT_SANS}`;
     ctx.fillText("Нет песен в этой папке", 8, LIST_Y + state.tracks.length * ROW_H + 14);
   }
 }
 
 function drawBottom() {
-  const ctx = bctx;
-  ctx.clearRect(0, 0, BOT_W, BOT_H);
+  bctx.clearRect(0, 0, BOT_W, BOT_H);
   if (state.screen === "eq") drawEqScreen();
+  else if (state.screen === "playlists") drawPlaylistsBot();
   else drawPlayerScreen();
 }
 
@@ -905,9 +1187,9 @@ function handlePointer(px, py, pressed, held) {
         }
       }
     }
-    if (pressed && inBox(px, py, EQ_BACK)) state.screen = "player";
     return;
   }
+  if (state.screen === "playlists") return;
   if (held && inBox(px, py, { x: SEEK.x, y: SEEK.y - 4, w: SEEK.w, h: SEEK.h + 8 })) {
     seekFrac((px - SEEK.x) / SEEK.w);
     dragging = "seek";
@@ -921,8 +1203,8 @@ function handlePointer(px, py, pressed, held) {
   } else if (inBox(px, py, NEXT)) next(1);
   else if (inBox(px, py, STOP)) stop();
   else if (inBox(px, py, EQBTN)) state.screen = "eq";
-  else if (inBox(px, py, FLAT)) { state.eq = [0, 0, 0]; applyEq(); }
-  else if (py >= FOLDER_Y && py < FOLDER_Y + FOLDER_H) fileInput.click();
+  else if (inBox(px, py, ORDBTN)) cycleOrder();
+  else if (inBox(px, py, RPTBTN)) cycleRepeat();
   else if (py >= LIST_Y && py < LIST_Y + LIST_H) {
     const row = Math.floor((py - LIST_Y) / ROW_H);
     const idx = state.scroll + row;
@@ -951,15 +1233,34 @@ botCanvas.addEventListener("pointerup", () => { dragging = null; });
 botCanvas.addEventListener("pointercancel", () => { dragging = null; });
 
 window.addEventListener("keydown", (ev) => {
-  if (ev.code === "Space") { ev.preventDefault(); onPlayButton(); }
-  if (ev.code === "Escape" || ev.code === "KeyB") {
-    if (state.screen === "eq") state.screen = "player";
-    else stop();
-  }
+  if (ev.code === "Space") { ev.preventDefault(); onButtonA(); }
+  if (ev.code === "KeyB") onButtonB();
+  if (ev.code === "KeyX") onButtonX();
+  if (ev.code === "KeyY") onButtonY();
   if (ev.code === "KeyE") state.screen = state.screen === "eq" ? "player" : "eq";
-  if (ev.code === "ArrowLeft") next(-1);
-  if (ev.code === "ArrowRight") next(1);
-  if (state.screen !== "eq") {
+
+  if (state.screen === "playlists") {
+    if (state.plFocus === "top") {
+      if (ev.code === "ArrowUp") state.plCursor = Math.max(0, state.plCursor - 1);
+      if (ev.code === "ArrowDown") state.plCursor = Math.min(state.playlists.length - 1, state.plCursor + 1);
+    } else {
+      const pl = state.playlists[state.plCursor];
+      const n = pl ? pl.songs.length : 0;
+      if (ev.code === "ArrowUp") {
+        state.plSongCursor = Math.max(0, state.plSongCursor - 1);
+        if (state.plSongCursor < state.plSongScroll) state.plSongScroll = state.plSongCursor;
+      }
+      if (ev.code === "ArrowDown") {
+        state.plSongCursor = Math.min(n - 1, state.plSongCursor + 1);
+        if (state.plSongCursor >= state.plSongScroll + 9) state.plSongScroll = state.plSongCursor - 8;
+      }
+    }
+    return;
+  }
+
+  if (state.screen === "player") {
+    if (ev.code === "ArrowLeft") switchPlaylist(-1);
+    if (ev.code === "ArrowRight") switchPlaylist(1);
     if (ev.code === "ArrowUp") {
       state.cursor = Math.max(0, state.cursor - 1);
       if (state.cursor < state.scroll) state.scroll = state.cursor;
@@ -969,7 +1270,6 @@ window.addEventListener("keydown", (ev) => {
       if (state.cursor >= state.scroll + LIST_ROWS) state.scroll = state.cursor - LIST_ROWS + 1;
     }
   }
-  if (ev.code === "Enter" && state.cursor >= 0) activate(state.cursor);
 });
 
 fileInput.addEventListener("change", () => addFiles(fileInput.files));

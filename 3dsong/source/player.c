@@ -108,7 +108,7 @@ static int pick_next(Player *p, Library *lib, int dir)
     int n, i, idx;
     if (!lib || lib->count <= 0) return -1;
     n = lib->count;
-    if (p->shuffle) {
+    if (p->play_order == ORDER_SHUFFLE_ONE || p->play_order == ORDER_SHUFFLE_ALL) {
         int guard = 0;
         int next = p->track_index;
         while (guard++ < 32) {

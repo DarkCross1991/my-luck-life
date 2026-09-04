@@ -16,11 +16,18 @@
 
 static C2D_TextBuf g_textbuf;
 static int g_eq_screen;
+static int g_pl_screen;
+static int g_pl_focus_bottom; /* 0 = top list, 1 = bottom songs */
+
+static const char *ORDER_LABELS[] = { "SEQ", "S1", "S*" };
+static const char *REPEAT_LABELS[] = { "R-", "R~", "R1" };
 
 void ui_init(void)
 {
     g_textbuf = C2D_TextBufNew(8192);
     g_eq_screen = 0;
+    g_pl_screen = 0;
+    g_pl_focus_bottom = 0;
 }
 
 void ui_fini(void)
@@ -87,7 +94,7 @@ static float viz_col_energy(const VizState *v, int col, int cols)
     return a * (1.0f - frac) + b * frac;
 }
 
-void ui_draw_top(const Player *p)
+static void draw_led_top(const Player *p)
 {
     const VizState *v = &p->viz;
     const int led_cols = 64;
@@ -101,7 +108,6 @@ void ui_draw_top(const Player *p)
     int playing = (p->state == PLAYER_PLAYING);
 
     tick++;
-
     rect(0, 0, TOP_W, TOP_H, RGBA(6, 4, 2, 255));
 
     for (col = 0; col <= led_cols; col++) {
@@ -150,6 +156,60 @@ void ui_draw_top(const Player *p)
     }
 }
 
+static float scroll_thumb_y(int count, int selected, float track_y, float track_h, float thumb_h)
+{
+    float seg;
+    if (count <= 1) return track_y + (track_h - thumb_h) * 0.5f;
+    seg = track_h / (float)count;
+    return track_y + seg * (float)selected + seg * 0.5f - thumb_h * 0.5f;
+}
+
+static void draw_playlists_top(const PlaylistSet *pls)
+{
+    int i, vis = 8;
+    int sel = pls ? pls->cursor : 0;
+    int focus = !g_pl_focus_bottom;
+    float ty;
+    char line[48];
+
+    rect(0, 0, TOP_W, TOP_H, COL_BOT_BG);
+    rect(PL_TOP_LIST_X - 1, PL_TOP_LIST_Y - 1, PL_TOP_LIST_W + 2, PL_TOP_LIST_H + 2,
+         focus ? COL_GOLD : COL_WOOD_DK);
+    rect(PL_TOP_LIST_X, PL_TOP_LIST_Y, PL_TOP_LIST_W, PL_TOP_LIST_H, COL_WOOD_DK);
+
+    ui_draw_text("ПЛЕЙЛИСТЫ", PL_TOP_LIST_X + 6, PL_TOP_LIST_Y + 4, 0.40f, COL_GOLD, 0);
+    ui_draw_text("A выбрать  Y низ", PL_TOP_LIST_X + 140, PL_TOP_LIST_Y + 6, 0.28f, COL_TEXT_DIM, 0);
+
+    if (!pls || pls->count == 0) {
+        ui_draw_text("Нет папок в sdmc:/Music", PL_TOP_LIST_X + 8, PL_TOP_LIST_Y + 40, 0.34f, COL_TEXT_DIM, 0);
+        return;
+    }
+
+    for (i = 0; i < vis; i++) {
+        int idx = sel - 3;
+        float y;
+        if (idx < 0) idx = 0;
+        idx += i;
+        y = (float)(PL_TOP_LIST_Y + 22 + i * 20);
+        if (idx >= pls->count) break;
+        if (idx == sel) rect(PL_TOP_LIST_X + 2, y - 2, PL_TOP_LIST_W - 4, 18, COL_LIST_SEL);
+        ui_draw_text(pls->items[idx].name, PL_TOP_LIST_X + 8, y + 2, 0.38f,
+                     idx == pls->active ? COL_ACCENT : COL_TEXT, 0);
+        snprintf(line, sizeof(line), "%d", pls->items[idx].song_count);
+        ui_draw_text(line, PL_TOP_LIST_X + PL_TOP_LIST_W - 8, y + 2, 0.32f, COL_TEXT_DIM, C2D_AlignRight);
+    }
+
+    rect(PL_SCROLL_X, PL_TOP_LIST_Y, PL_SCROLL_W, PL_TOP_LIST_H, RGBA(28, 18, 8, 255));
+    ty = scroll_thumb_y(pls->count, sel, (float)PL_TOP_LIST_Y, (float)PL_TOP_LIST_H, (float)PL_SCROLL_THUMB_H);
+    rect(PL_SCROLL_X, ty, PL_SCROLL_W, PL_SCROLL_THUMB_H, COL_GOLD);
+}
+
+void ui_draw_top(const Player *p, const PlaylistSet *pls)
+{
+    if (g_pl_screen) draw_playlists_top(pls);
+    else draw_led_top(p);
+}
+
 static int in_box(int px, int py, int x, int y, int w, int h)
 {
     return px >= x && px < x + w && py >= y && py < y + h;
@@ -190,19 +250,6 @@ static void draw_icon_stop(float x, float y, float w, float h)
     rect(x + (w - s) * 0.5f, y + (h - s) * 0.5f, s, s, COL_TEXT);
 }
 
-static void trunc_left(const char *path, char *out, size_t n, int max_chars)
-{
-    size_t len;
-    if (!path || !out || n == 0) return;
-    len = strlen(path);
-    if (len <= (size_t)max_chars || max_chars <= 3) {
-        strncpy(out, path, n - 1);
-        out[n - 1] = 0;
-        return;
-    }
-    snprintf(out, n, "...%s", path + (len - (size_t)(max_chars - 3)));
-}
-
 static void play_or_activate(Player *p, Library *lib)
 {
     if (library_is_file(lib, lib->cursor) &&
@@ -214,15 +261,64 @@ static void play_or_activate(Player *p, Library *lib)
     player_activate(p, lib, lib->cursor);
 }
 
-int ui_eq_screen_open(void)
+int ui_eq_screen_open(void) { return g_eq_screen; }
+int ui_playlists_open(void) { return g_pl_screen; }
+int ui_pl_focus_bottom(void) { return g_pl_focus_bottom; }
+
+void ui_open_eq(void)
 {
-    return g_eq_screen;
+    g_eq_screen = 1;
+    g_pl_screen = 0;
+}
+
+void ui_sync_pl_preview(const PlaylistSet *pls, Library *pl_preview)
+{
+    const PlaylistInfo *pl;
+    int i;
+    if (!pls || !pl_preview) return;
+    pl = playlists_at(pls, pls->cursor);
+    if (!pl) {
+        library_init(pl_preview);
+        return;
+    }
+    library_open_dir(pl_preview, pl->path);
+    pl_preview->cursor = 0;
+    for (i = 0; i < pl_preview->count; i++) {
+        if (pl_preview->tracks[i].kind == ENTRY_FILE) {
+            pl_preview->cursor = i;
+            pl_preview->scroll = i > 0 ? i : 0;
+            break;
+        }
+    }
+}
+
+void ui_open_playlists(PlaylistSet *pls, Library *pl_preview)
+{
+    g_pl_screen = 1;
+    g_eq_screen = 0;
+    g_pl_focus_bottom = 0;
+    if (pls) {
+        playlists_refresh(pls);
+        pls->cursor = pls->active >= 0 ? pls->active : 0;
+    }
+    ui_sync_pl_preview(pls, pl_preview);
+}
+
+void ui_toggle_pl_focus(void)
+{
+    if (!g_pl_screen) return;
+    g_pl_focus_bottom = !g_pl_focus_bottom;
 }
 
 int ui_handle_back(void)
 {
     if (g_eq_screen) {
         g_eq_screen = 0;
+        return 1;
+    }
+    if (g_pl_screen) {
+        g_pl_screen = 0;
+        g_pl_focus_bottom = 0;
         return 1;
     }
     return 0;
@@ -235,9 +331,8 @@ static void draw_eq_screen(const Player *p)
 
     rect(0, 0, BOT_W, BOT_H, COL_BOT_BG);
     rect(0, 0, BOT_W, 38, COL_WOOD_DK);
-    btn(EQ_BACK_X, EQ_BACK_Y, EQ_BACK_W, EQ_BACK_H, 0);
-    ui_draw_text("BACK", EQ_BACK_X + EQ_BACK_W * 0.5f, EQ_BACK_Y + 6, 0.38f, COL_TEXT, C2D_AlignCenter);
     ui_draw_text("EQUALIZER", 160, 10, 0.42f, COL_GOLD, C2D_AlignCenter);
+    ui_draw_text("B — назад", 160, 24, 0.28f, COL_TEXT_DIM, C2D_AlignCenter);
 
     for (i = 0; i < EQ_BANDS; i++) {
         float cx = (float)(EQ_COL0 + i * EQ_COL_GAP);
@@ -257,15 +352,58 @@ static void draw_eq_screen(const Player *p)
     }
 }
 
-static void draw_player_screen(const Player *p, const Library *lib)
+static void draw_playlists_bot(const PlaylistSet *pls, const Library *preview)
+{
+    int i, row = 0, vis = 9;
+    int focus = g_pl_focus_bottom;
+    const PlaylistInfo *pl = playlists_at(pls, pls ? pls->cursor : -1);
+    char line[96];
+    int sel = preview ? preview->cursor : 0;
+    int start = preview ? preview->scroll : 0;
+
+    rect(0, 0, BOT_W, BOT_H, COL_BOT_BG);
+    rect(PL_MARGIN - 1, PL_MARGIN - 1, PL_BOT_LIST_W + 2, PL_BOT_LIST_H + 2,
+         focus ? COL_GOLD : COL_WOOD_DK);
+    rect(PL_MARGIN, PL_MARGIN, PL_BOT_LIST_W, PL_BOT_LIST_H, COL_WOOD_DK);
+
+    ui_draw_text(pl ? pl->name : "", PL_MARGIN + 6, PL_MARGIN + 4, 0.36f, COL_GOLD, 0);
+    ui_draw_text(focus ? "A — играть" : "Y — сюда", PL_MARGIN + 6, PL_MARGIN + 18, 0.28f, COL_TEXT_DIM, 0);
+
+    if (!preview) {
+        ui_draw_text("Плейлист пуст", PL_MARGIN + 8, PL_MARGIN + 48, 0.34f, COL_TEXT_DIM, 0);
+        return;
+    }
+
+    for (i = start; i < preview->count && row < vis; i++) {
+        const Track *t = &preview->tracks[i];
+        float y;
+        if (t->kind != ENTRY_FILE) continue;
+        y = (float)(PL_MARGIN + 34 + row * 17);
+        if (focus && i == sel) rect(PL_MARGIN + 2, y - 2, PL_BOT_LIST_W - 4, 15, COL_LIST_SEL);
+        snprintf(line, sizeof(line), "%.30s", t->name);
+        ui_draw_text(line, PL_MARGIN + 8, y + 1, 0.34f, COL_TEXT, 0);
+        ui_draw_text(format_name(t->format), PL_MARGIN + PL_BOT_LIST_W - 8, y + 1, 0.28f, COL_TEXT_DIM, C2D_AlignRight);
+        row++;
+    }
+    if (row == 0)
+        ui_draw_text("Плейлист пуст", PL_MARGIN + 8, PL_MARGIN + 48, 0.34f, COL_TEXT_DIM, 0);
+}
+
+static void draw_player_screen(const Player *p, const Library *lib, const PlaylistSet *pls)
 {
     int i, vis;
     char line[160];
+    char plname[LIBRARY_NAME_MAX];
     float prog = player_progress(p);
+    int order = (int)p->play_order;
+    int rept = (int)p->repeat;
+
+    if (order < 0 || order > 2) order = 0;
+    if (rept < 0 || rept > 2) rept = 0;
 
     rect(0, 0, BOT_W, BOT_H, COL_BOT_BG);
 
-    ui_draw_text(p->current_title[0] ? p->current_title : "Выберите трек в папке",
+    ui_draw_text(p->current_title[0] ? p->current_title : "Выберите трек",
                  8, 3, 0.40f, COL_TEXT, 0);
     if (p->error) {
         ui_draw_text(p->error_msg, 8, 16, 0.30f, COL_VU_RED, 0);
@@ -298,13 +436,20 @@ static void draw_player_screen(const Player *p, const Library *lib)
     btn(STOP_X, STOP_Y, STOP_W, STOP_H, 0);
     draw_icon_stop(STOP_X, STOP_Y, STOP_W, STOP_H);
     btn(EQBTN_X, EQBTN_Y, EQBTN_W, EQBTN_H, 0);
-    ui_draw_text("EQ", EQBTN_X + EQBTN_W * 0.5f, EQBTN_Y + 8, 0.40f, COL_TEXT, C2D_AlignCenter);
-    btn(FLAT_X, FLAT_Y, FLAT_W, FLAT_H, 0);
-    ui_draw_text("FLAT", FLAT_X + FLAT_W * 0.5f, FLAT_Y + 8, 0.38f, COL_TEXT, C2D_AlignCenter);
+    btn(ORDBTN_X, ORDBTN_Y, ORDBTN_W, ORDBTN_H, order > 0);
+    btn(RPTBTN_X, RPTBTN_Y, RPTBTN_W, RPTBTN_H, rept > 0);
+    ui_draw_text("EQ", EQBTN_X + EQBTN_W * 0.5f, EQBTN_Y + 8, 0.36f, COL_TEXT, C2D_AlignCenter);
+    ui_draw_text(ORDER_LABELS[order], ORDBTN_X + ORDBTN_W * 0.5f, ORDBTN_Y + 8, 0.34f, COL_TEXT, C2D_AlignCenter);
+    ui_draw_text(REPEAT_LABELS[rept], RPTBTN_X + RPTBTN_W * 0.5f, RPTBTN_Y + 8, 0.34f, COL_TEXT, C2D_AlignCenter);
 
     rect(0, FOLDER_Y, BOT_W, FOLDER_H, COL_WOOD_DK);
-    trunc_left(lib->cwd[0] ? lib->cwd : "sdmc:/", line, sizeof(line), 44);
-    ui_draw_text(line, 6, FOLDER_Y + 2, 0.32f, COL_GOLD, 0);
+    if (pls && pls->active >= 0 && pls->active < pls->count)
+        strncpy(plname, pls->items[pls->active].name, sizeof(plname) - 1);
+    else
+        playlists_display_name(lib->cwd, plname, sizeof(plname));
+    plname[sizeof(plname) - 1] = 0;
+    ui_draw_text(plname, 6, FOLDER_Y + 2, 0.32f, COL_GOLD, 0);
+    ui_draw_text("<- -> плейлист", 312, FOLDER_Y + 2, 0.28f, COL_TEXT_DIM, C2D_AlignRight);
 
     vis = LIST_ROWS;
     for (i = 0; i < vis; i++) {
@@ -332,25 +477,20 @@ static void draw_player_screen(const Player *p, const Library *lib)
         }
     }
     if (lib->count == 0) {
-        ui_draw_text("Нет файлов. Положите музыку в sdmc:/Music", 8, LIST_Y + 20, 0.32f, COL_TEXT_DIM, 0);
-    } else {
-        int any_file = 0;
-        for (i = 0; i < lib->count; i++) {
-            if (lib->tracks[i].kind == ENTRY_FILE) { any_file = 1; break; }
-        }
-        if (!any_file && lib->count <= vis) {
-            ui_draw_text("Нет песен в этой папке", 8, LIST_Y + lib->count * ROW_H + 6, 0.32f, COL_TEXT_DIM, 0);
-        }
+        ui_draw_text("Нет файлов. Папки в sdmc:/Music", 8, LIST_Y + 20, 0.32f, COL_TEXT_DIM, 0);
     }
 }
 
-void ui_draw_bottom(const Player *p, const Library *lib)
+void ui_draw_bottom(const Player *p, const Library *lib, const PlaylistSet *pls,
+                    const Library *pl_preview)
 {
     if (g_eq_screen) draw_eq_screen(p);
-    else draw_player_screen(p, lib);
+    else if (g_pl_screen) draw_playlists_bot(pls, pl_preview);
+    else draw_player_screen(p, lib, pls);
 }
 
-void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int held)
+void ui_handle_touch(Player *p, Library *lib, PlaylistSet *pls, Library *pl_preview,
+                     int px, int py, int pressed, int held)
 {
     int i;
     if (!held && !pressed) return;
@@ -369,8 +509,28 @@ void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int h
                 }
             }
         }
-        if (pressed && in_box(px, py, EQ_BACK_X, EQ_BACK_Y, EQ_BACK_W, EQ_BACK_H)) {
-            g_eq_screen = 0;
+        return;
+    }
+
+    if (g_pl_screen) {
+        if (!pressed) return;
+        if (py >= PL_MARGIN + 34 && py < PL_MARGIN + PL_BOT_LIST_H && pl_preview) {
+            int row = (py - (PL_MARGIN + 34)) / 17;
+            int idx = pl_preview->scroll + row;
+            g_pl_focus_bottom = 1;
+            if (idx >= 0 && idx < pl_preview->count && library_is_file(pl_preview, idx)) {
+                pl_preview->cursor = idx;
+                if (pls) playlists_load(pls, lib, pls->cursor);
+                /* map selected preview file into main lib by path */
+                for (i = 0; i < lib->count; i++) {
+                    if (lib->tracks[i].kind == ENTRY_FILE &&
+                        strcmp(lib->tracks[i].path, pl_preview->tracks[idx].path) == 0) {
+                        player_activate(p, lib, i);
+                        g_pl_screen = 0;
+                        return;
+                    }
+                }
+            }
         }
         return;
     }
@@ -400,11 +560,15 @@ void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int h
         return;
     }
     if (in_box(px, py, EQBTN_X, EQBTN_Y, EQBTN_W, EQBTN_H)) {
-        g_eq_screen = 1;
+        ui_open_eq();
         return;
     }
-    if (in_box(px, py, FLAT_X, FLAT_Y, FLAT_W, FLAT_H)) {
-        eq_flat(&p->eq);
+    if (in_box(px, py, ORDBTN_X, ORDBTN_Y, ORDBTN_W, ORDBTN_H)) {
+        p->play_order = (PlayOrder)(((int)p->play_order + 1) % 3);
+        return;
+    }
+    if (in_box(px, py, RPTBTN_X, RPTBTN_Y, RPTBTN_W, RPTBTN_H)) {
+        p->repeat = (RepeatMode)(((int)p->repeat + 1) % 3);
         return;
     }
     if (py >= LIST_Y && py < LIST_Y + LIST_H) {
@@ -420,12 +584,27 @@ void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int h
 #else
 void ui_init(void) {}
 void ui_fini(void) {}
-void ui_draw_top(const Player *p) { (void)p; }
-void ui_draw_bottom(const Player *p, const Library *lib) { (void)p; (void)lib; }
-void ui_handle_touch(Player *p, Library *lib, int px, int py, int pressed, int held)
+void ui_draw_top(const Player *p, const PlaylistSet *pls) { (void)p; (void)pls; }
+void ui_draw_bottom(const Player *p, const Library *lib, const PlaylistSet *pls,
+                    const Library *pl_preview)
 {
-    (void)p; (void)lib; (void)px; (void)py; (void)pressed; (void)held;
+    (void)p; (void)lib; (void)pls; (void)pl_preview;
+}
+void ui_handle_touch(Player *p, Library *lib, PlaylistSet *pls, Library *pl_preview,
+                     int px, int py, int pressed, int held)
+{
+    (void)p; (void)lib; (void)pls; (void)pl_preview;
+    (void)px; (void)py; (void)pressed; (void)held;
 }
 int ui_handle_back(void) { return 0; }
 int ui_eq_screen_open(void) { return 0; }
+int ui_playlists_open(void) { return 0; }
+void ui_open_eq(void) {}
+void ui_open_playlists(PlaylistSet *pls, Library *pl_preview) { (void)pls; (void)pl_preview; }
+void ui_toggle_pl_focus(void) {}
+int ui_pl_focus_bottom(void) { return 0; }
+void ui_sync_pl_preview(const PlaylistSet *pls, Library *pl_preview)
+{
+    (void)pls; (void)pl_preview;
+}
 #endif

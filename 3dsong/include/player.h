@@ -12,16 +12,24 @@ typedef enum {
     PLAYER_PAUSED
 } PlayerState;
 
+/* R- stop at end · R↻ restart list · R1 one track */
 typedef enum {
     REPEAT_OFF = 0,
-    REPEAT_ONE,
-    REPEAT_ALL
+    REPEAT_ALL,
+    REPEAT_ONE
 } RepeatMode;
+
+/* SEQ · S1 shuffle current playlist · S* shuffle all scanned music */
+typedef enum {
+    ORDER_SEQ = 0,
+    ORDER_SHUFFLE_ONE,
+    ORDER_SHUFFLE_ALL
+} PlayOrder;
 
 typedef struct {
     PlayerState state;
     RepeatMode repeat;
-    int shuffle;
+    PlayOrder play_order;
     int volume_pct; /* 0..100 */
     int track_index;
     char current_path[LIBRARY_PATH_MAX];

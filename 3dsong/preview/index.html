@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>3DSong 0.4 — Nintendo 3DS XL Old</title>
+  <title>3DSong 0.5 — Nintendo 3DS XL Old</title>
   <link rel="icon" href="favicon.png" />
   <link rel="stylesheet" href="3dsong.css" />
 </head>
@@ -11,8 +11,8 @@
   <div class="desk">
     <header class="mast">
       <div>
-        <h1>3DSong <span>0.4</span></h1>
-        <p>Плеер для Nintendo 3DS XL Old · верх — LED-спектр · низ — транспорт, папка и EQ</p>
+        <h1>3DSong <span>0.5</span></h1>
+        <p>Плейлисты · порядок/повтор · EQ без BACK · имена папок без sdmc:/Music/</p>
       </div>
       <label class="load">
         Загрузить файлы
@@ -23,13 +23,13 @@
     <div class="console" id="console">
       <div class="lid">
         <div class="bezel top-bezel">
-          <canvas id="top" width="400" height="240" aria-label="LED-спектр"></canvas>
+          <canvas id="top" width="400" height="240" aria-label="Верхний экран"></canvas>
         </div>
       </div>
       <div class="hinge"><span></span><span></span><span></span></div>
       <div class="body">
         <div class="bezel bot-bezel">
-          <canvas id="bot" width="320" height="240" aria-label="Панель управления"></canvas>
+          <canvas id="bot" width="320" height="240" aria-label="Нижний экран"></canvas>
         </div>
         <div class="face-buttons" aria-hidden="true">
           <i class="circle-pad"></i>
@@ -41,9 +41,12 @@
     </div>
 
     <p class="hint">
-      Space — пуск/пауза · ← → — трек · ↑ ↓ — папка · E — эквалайзер · Esc/B — назад или стоп ·
-      клик по полосе папки — LOAD · drag-and-drop аудио на консоль.
-      Громкость — только у системы. Форматы: MP3, OGG, WAV, FLAC, AAC/M4A, OPUS, AIFF.
+      ↑↓ — выделение · ←→ — плейлист · A — выбор/пауза · B — пауза/назад · X — стоп · Y — плейлисты ·
+      E — EQ · на экране плейлистов Y переключает верх/низ.
+    </p>
+    <p class="hint">
+      Длинное название выбранной песни или плейлиста: пауза 5 с → прокрутка влево 10 px/с до конца справа →
+      пауза 5 с → снова с начала.
     </p>
   </div>
   <script src="3dsong.js"></script>
