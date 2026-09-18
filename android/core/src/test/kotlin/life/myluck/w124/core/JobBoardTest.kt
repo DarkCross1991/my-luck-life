@@ -110,12 +110,26 @@ class JobBoardTest {
         assertEquals(NodeUrgency.OK, views.first { it.node.id == "rpm-drive" }.urgency)
         assertEquals("Педаль в Drive", state.nodes.first { it.id == "rpm-drive" }.title)
         val tps = state.nodes.first { it.id == "tps-sensor" }
-        assertTrue(tps.open)
-        assertEquals("urgent", tps.priority)
+        assertFalse(tps.open)
+        assertEquals("2026-09-18", tps.lastDoneAt)
+        assertEquals(322480, tps.lastDoneKm)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "tps-sensor" }.urgency)
         val tpsJob = jobs.jobs.first { it.nodeId == "tps-sensor" }
-        assertTrue(tpsJob.steps.size >= 2)
+        assertTrue(tpsJob.what.contains("Закрыто"))
         assertTrue(tpsJob.toolIds.contains("airflow-pot"))
-        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "tps-sensor" }.urgency)
+        val hose = state.nodes.first { it.id == "idle-air-hose" }
+        assertTrue(hose.open)
+        assertTrue(hose.lastDoneNote!!.contains("A1020944882"))
+        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "idle-air-hose" }.urgency)
+        val hoseJob = jobs.jobs.first { it.nodeId == "idle-air-hose" }
+        assertTrue(hoseJob.toolIds.contains("idle-air-hose"))
+        assertTrue(hoseJob.steps.any { it.contains("A1020944882") || it.contains("A102 094 48 82") })
+        val oil = state.nodes.first { it.id == "engine-oil" }
+        assertFalse(oil.open)
+        assertEquals("2026-09-18", oil.lastDoneAt)
+        assertEquals(322480, oil.lastDoneKm)
+        assertEquals(322480, state.odometer.km)
+        assertTrue(state.nodes.first { it.id == "idle-valve" }.lastDoneNote!!.contains("РХХ"))
         val abs = state.nodes.first { it.id == "abs" }
         assertTrue(abs.open)
         assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "abs" }.urgency)
@@ -125,6 +139,7 @@ class JobBoardTest {
         assertEquals(NodeUrgency.OK, views.first { it.node.id == "ovp-relay" }.urgency)
         assertTrue(state.logbook.any { it.id == "log-hot-drive-2026-08-28" })
         assertTrue(state.logbook.any { it.id == "log-exhaust-smell-2026-08-28" })
+        assertTrue(state.logbook.any { it.id == "log-service-2026-09-18" })
         val beltJob = jobs.jobs.first { it.nodeId == "accessory-belt-tensioner" }
         assertTrue(beltJob.what.contains("завален"))
         assertTrue(beltJob.steps.any { it.contains("Febi 06418") })
@@ -166,18 +181,17 @@ class JobBoardTest {
         assertTrue(log.body.contains("аварийном"))
         assertTrue(log.body.contains("A000 074 01 36"))
         val pot = tools.tools.first { it.id == "airflow-pot" }
-        assertFalse(pot.have)
-        assertTrue(pot.note!!.contains("F 026 T03 021"))
-        assertTrue(pot.note!!.contains("006 153 86 28"))
-        assertTrue(pot.note!!.contains("3437224035"))
-        assertTrue(pot.note!!.contains("A000 074 01 36") || pot.note!!.contains("01 36"))
+        assertTrue(pot.have)
+        assertTrue(pot.note!!.contains("установлен") || pot.note!!.contains("F 026 T03 021") || pot.note!!.contains("3437224035"))
         val idleJob = jobs.jobs.first { it.nodeId == "idle-valve" }
-        assertTrue(idleJob.toolIds.contains("airflow-pot"))
-        assertTrue(idleJob.steps.any { it.contains("1,3") })
+        assertTrue(idleJob.what.contains("РХХ") || idleJob.what.contains("заменён"))
+        assertTrue(tools.tools.first { it.id == "idle-valve" }.have)
+        val hosePart = tools.tools.first { it.id == "idle-air-hose" }
+        assertFalse(hosePart.have)
+        assertTrue(hosePart.note!!.contains("A1020944882") || hosePart.note!!.contains("A102 094 48 82"))
         val tpsJob = jobs.jobs.first { it.nodeId == "tps-sensor" }
         assertTrue(tpsJob.toolIds.contains("torx-t15"))
         assertTrue(tpsJob.toolIds.contains("multimeter"))
-        assertTrue(tpsJob.steps.any { it.contains("T15") })
         val wiperJob = jobs.jobs.first { it.nodeId == "wiper-linkage" }
         assertTrue(wiperJob.toolIds.contains("wiper-arm-puller"))
         assertTrue(wiperJob.toolIds.contains("two-jaw-puller"))
