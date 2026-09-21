@@ -165,6 +165,13 @@ class JobBoardTest {
         assertTrue(state.logbook.any { it.id == "log-warm-idle-2026-09-21" })
         assertTrue(state.logbook.any { it.id == "log-hose-2026-09-21" })
         assertTrue(state.logbook.any { it.id == "log-belt-2026-09-21" })
+        val rms = state.nodes.first { it.id == "rear-main-seal-pack" }
+        assertTrue(rms.open)
+        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "rear-main-seal-pack" }.urgency)
+        val rmsJob = jobs.jobs.first { it.nodeId == "rear-main-seal-pack" }
+        assertTrue(rmsJob.steps.any { it.contains("сальник насоса") || it.contains("гидротрансформатора") })
+        assertTrue(rmsJob.toolIds.contains("rear-main-seal"))
+        assertTrue(state.logbook.any { it.id == "log-rms-pack-2026-09-21" })
         val belt = state.nodes.first { it.id == "accessory-belt-tensioner" }
         assertFalse(belt.open)
         assertEquals("2026-09-21", belt.lastDoneAt)
