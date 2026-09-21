@@ -31,12 +31,15 @@ class JobBoardTest {
             assertTrue("${view.node.id} must list tools", view.required.isNotEmpty())
             assertTrue("${view.node.id} must have hanging text", view.hangingRu.isNotBlank())
         }
-        val belt = views.first { it.node.id == "accessory-belt-tensioner" }
-        assertEquals(NodeUrgency.URGENT, belt.urgency)
-        assertEquals(25, belt.hangingDays)
-        assertTrue(belt.hangingRu.contains("25"))
-        assertTrue(belt.required.any { it.id == "screwdriver-long" && !it.have })
-        assertTrue(belt.required.any { it.id == "flashlight" && !it.have })
+        val warm = views.first { it.node.id == "warm-idle" }
+        assertEquals(NodeUrgency.URGENT, warm.urgency)
+        assertTrue(warm.required.any { it.id == "flashlight" && !it.have })
+        assertTrue(warm.required.any { it.id == "multimeter" && it.have })
+        val oilJob = views.first { it.node.id == "oil-consumption" }
+        assertEquals(NodeUrgency.URGENT, oilJob.urgency)
+        assertEquals(1, oilJob.hangingDays)
+        assertTrue(oilJob.hangingRu.contains("1"))
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "accessory-belt-tensioner" }.urgency)
     }
 
     @Test
@@ -70,8 +73,8 @@ class JobBoardTest {
         val views = NodeStatus.views(state, today, jobs.jobs, updated.tools)
         val missing = NodeStatus.missingTools(views)
         assertFalse(missing.any { it.tool.id == "flashlight" })
-        val belt = views.first { it.node.id == "accessory-belt-tensioner" }
-        assertTrue(belt.required.first { it.id == "flashlight" }.have)
+        val warm = views.first { it.node.id == "warm-idle" }
+        assertTrue(warm.required.first { it.id == "flashlight" }.have)
     }
 
     @Test
@@ -147,7 +150,7 @@ class JobBoardTest {
         assertFalse(oil.open)
         assertEquals("2026-09-18", oil.lastDoneAt)
         assertEquals(322480, oil.lastDoneKm)
-        assertEquals(322480, state.odometer.km)
+        assertEquals(322580, state.odometer.km)
         assertTrue(state.nodes.first { it.id == "idle-valve" }.lastDoneNote!!.contains("РХХ"))
         val abs = state.nodes.first { it.id == "abs" }
         assertTrue(abs.open)
@@ -161,10 +164,14 @@ class JobBoardTest {
         assertTrue(state.logbook.any { it.id == "log-service-2026-09-18" })
         assertTrue(state.logbook.any { it.id == "log-warm-idle-2026-09-21" })
         assertTrue(state.logbook.any { it.id == "log-hose-2026-09-21" })
+        assertTrue(state.logbook.any { it.id == "log-belt-2026-09-21" })
+        val belt = state.nodes.first { it.id == "accessory-belt-tensioner" }
+        assertFalse(belt.open)
+        assertEquals("2026-09-21", belt.lastDoneAt)
+        assertEquals(322580, belt.lastDoneKm)
         val beltJob = jobs.jobs.first { it.nodeId == "accessory-belt-tensioner" }
-        assertTrue(beltJob.what.contains("завален"))
-        assertTrue(beltJob.steps.any { it.contains("Febi 06418") })
-        assertTrue(beltJob.steps.any { it.contains("6PK1885") })
+        assertTrue(beltJob.what.contains("Закрыто"))
+        assertTrue(tools.tools.first { it.id == "tensioner-kit" }.have)
     }
 
     @Test

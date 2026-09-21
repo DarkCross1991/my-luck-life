@@ -15,7 +15,7 @@ class InboxTest {
         val log = LogEntry(
             id = "log-1",
             date = "2026-08-26",
-            title = "Заметка · 322 500 км",
+            title = "Заметка · 322 700 км",
             body = "Свист на холодную громче",
             tags = listOf("заметка", "inbox"),
             updatedAt = "2026-08-26T17:00:00Z",
@@ -23,13 +23,13 @@ class InboxTest {
         val item = InboxItem(
             id = "in-1",
             date = "2026-08-26",
-            odometer = 322500,
+            odometer = 322700,
             body = "Свист на холодную громче",
             logId = "log-1",
             updatedAt = "2026-08-26T17:00:00Z",
         )
         val (nextState, nextInbox) = GarageMutations.addInquiry(state, inbox, item, log)
-        assertEquals(322500, nextState.odometer.km)
+        assertEquals(322700, nextState.odometer.km)
         assertTrue(nextState.logbook.any { it.id == "log-1" })
         assertEquals(InboxStatus.PENDING, nextInbox.items.single().status)
     }
