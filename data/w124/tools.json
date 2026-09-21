@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-21T09:15:00Z",
+  "updatedAt": "2026-09-21T09:20:00Z",
   "tools": [
     {
       "id": "flashlight",
@@ -241,6 +241,14 @@
       "have": false,
       "note": "Не смешивать цвета вслепую.",
       "updatedAt": "2026-08-26T14:00:00Z"
+    },
+    {
+      "id": "coolant-temp-sensor",
+      "name": "ДТОЖ KE (датчик темп. ОЖ впрыска)",
+      "kind": "part",
+      "have": false,
+      "note": "Ещё не проверяли и не покупали. Не датчик стрелки щитка. Менять только после замера на прогретом.",
+      "updatedAt": "2026-09-21T09:20:00Z"
     },
     {
       "id": "multimeter",

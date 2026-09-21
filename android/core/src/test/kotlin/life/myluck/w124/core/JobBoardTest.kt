@@ -129,10 +129,20 @@ class JobBoardTest {
         assertTrue(warm.open)
         assertTrue(warm.lastDoneNote!!.contains("1000"))
         assertTrue(warm.lastDoneNote!!.contains("500"))
+        assertTrue(warm.lastDoneNote!!.contains("ДТОЖ"))
         assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "warm-idle" }.urgency)
         val warmJob = jobs.jobs.first { it.nodeId == "warm-idle" }
-        assertTrue(warmJob.steps.any { it.contains("концевик") || it.contains("Подсос") })
+        assertTrue(warmJob.steps.any { it.contains("ДТОЖ") })
         assertTrue(warmJob.toolIds.contains("multimeter"))
+        val dtozh = state.nodes.first { it.id == "coolant-temp-sensor" }
+        assertTrue(dtozh.open)
+        assertTrue(dtozh.lastDoneNote!!.contains("не проверяли") || dtozh.title.contains("не проверен"))
+        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "coolant-temp-sensor" }.urgency)
+        val dtozhJob = jobs.jobs.first { it.nodeId == "coolant-temp-sensor" }
+        assertTrue(dtozhJob.steps.any { it.contains("сопротивление") || it.contains("прогретом") })
+        assertTrue(dtozhJob.toolIds.contains("multimeter"))
+        assertFalse(tools.tools.first { it.id == "coolant-temp-sensor" }.have)
+        assertTrue(state.logbook.any { it.id == "log-dtozh-open-2026-09-21" })
         val oil = state.nodes.first { it.id == "engine-oil" }
         assertFalse(oil.open)
         assertEquals("2026-09-18", oil.lastDoneAt)
