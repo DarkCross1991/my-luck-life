@@ -14,9 +14,10 @@ class NodeStatusTest {
         val views = NodeStatus.views(state, LocalDate.of(2026, 8, 26))
         assertEquals(NodeUrgency.URGENT, views.first().urgency)
         assertTrue(views.any { it.node.id == "accessory-belt-tensioner" && it.urgency == NodeUrgency.URGENT })
-        assertTrue(views.any { it.node.id == "idle-air-hose" && it.urgency == NodeUrgency.URGENT })
+        assertTrue(views.any { it.node.id == "warm-idle" && it.urgency == NodeUrgency.URGENT })
         assertTrue(views.any { it.node.id == "spark-plugs" && it.urgency == NodeUrgency.URGENT })
         assertEquals(NodeUrgency.OK, views.first { it.node.id == "engine-oil" }.urgency)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "idle-air-hose" }.urgency)
     }
 
     @Test

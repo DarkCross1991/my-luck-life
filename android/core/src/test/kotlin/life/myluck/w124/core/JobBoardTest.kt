@@ -118,12 +118,21 @@ class JobBoardTest {
         assertTrue(tpsJob.what.contains("Закрыто"))
         assertTrue(tpsJob.toolIds.contains("airflow-pot"))
         val hose = state.nodes.first { it.id == "idle-air-hose" }
-        assertTrue(hose.open)
+        assertFalse(hose.open)
+        assertEquals("2026-09-21", hose.lastDoneAt)
         assertTrue(hose.lastDoneNote!!.contains("A1020944882"))
-        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "idle-air-hose" }.urgency)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "idle-air-hose" }.urgency)
         val hoseJob = jobs.jobs.first { it.nodeId == "idle-air-hose" }
-        assertTrue(hoseJob.toolIds.contains("idle-air-hose"))
-        assertTrue(hoseJob.steps.any { it.contains("A1020944882") || it.contains("A102 094 48 82") })
+        assertTrue(hoseJob.what.contains("Закрыто"))
+        assertTrue(tools.tools.first { it.id == "idle-air-hose" }.have)
+        val warm = state.nodes.first { it.id == "warm-idle" }
+        assertTrue(warm.open)
+        assertTrue(warm.lastDoneNote!!.contains("1000"))
+        assertTrue(warm.lastDoneNote!!.contains("500"))
+        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "warm-idle" }.urgency)
+        val warmJob = jobs.jobs.first { it.nodeId == "warm-idle" }
+        assertTrue(warmJob.steps.any { it.contains("концевик") || it.contains("Подсос") })
+        assertTrue(warmJob.toolIds.contains("multimeter"))
         val oil = state.nodes.first { it.id == "engine-oil" }
         assertFalse(oil.open)
         assertEquals("2026-09-18", oil.lastDoneAt)
@@ -140,6 +149,8 @@ class JobBoardTest {
         assertTrue(state.logbook.any { it.id == "log-hot-drive-2026-08-28" })
         assertTrue(state.logbook.any { it.id == "log-exhaust-smell-2026-08-28" })
         assertTrue(state.logbook.any { it.id == "log-service-2026-09-18" })
+        assertTrue(state.logbook.any { it.id == "log-warm-idle-2026-09-21" })
+        assertTrue(state.logbook.any { it.id == "log-hose-2026-09-21" })
         val beltJob = jobs.jobs.first { it.nodeId == "accessory-belt-tensioner" }
         assertTrue(beltJob.what.contains("завален"))
         assertTrue(beltJob.steps.any { it.contains("Febi 06418") })
@@ -187,8 +198,8 @@ class JobBoardTest {
         assertTrue(idleJob.what.contains("РХХ") || idleJob.what.contains("заменён"))
         assertTrue(tools.tools.first { it.id == "idle-valve" }.have)
         val hosePart = tools.tools.first { it.id == "idle-air-hose" }
-        assertFalse(hosePart.have)
-        assertTrue(hosePart.note!!.contains("A1020944882") || hosePart.note!!.contains("A102 094 48 82"))
+        assertTrue(hosePart.have)
+        assertTrue(hosePart.note!!.contains("A1020944882") || hosePart.note!!.contains("A102 094 48 82") || hosePart.note!!.contains("установлен"))
         val tpsJob = jobs.jobs.first { it.nodeId == "tps-sensor" }
         assertTrue(tpsJob.toolIds.contains("torx-t15"))
         assertTrue(tpsJob.toolIds.contains("multimeter"))
