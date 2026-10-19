@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-19T13:06:17.919130Z",
+  "updatedAt": "2026-10-19T18:07:29.560273Z",
   "vehicle": {
     "id": "w124-200e",
     "make": "Mercedes-Benz",
@@ -19,8 +19,8 @@
   "odometer": {
     "km": 323200,
     "recordedAt": "2026-10-19",
-    "source": "journal",
-    "updatedAt": "2026-10-19T13:06:17.919130Z"
+    "source": "node",
+    "updatedAt": "2026-10-19T18:07:29.560273Z"
   },
   "fuel": [
     {
@@ -92,14 +92,14 @@
       "system": "engine",
       "kind": "inspect",
       "priority": "urgent",
-      "open": true,
+      "open": false,
       "intervalKm": 1000,
       "intervalMonths": null,
-      "lastDoneAt": null,
-      "lastDoneKm": null,
-      "lastDoneNote": "Расход >1 л / интервал, луж нет, короткие поездки. Масло скорее сгорает (колпачки / кольца / сапун), не течёт.",
+      "lastDoneAt": "2026-10-19",
+      "lastDoneKm": 323200,
+      "lastDoneNote": "примерно 900-1000 грамм на 1000км\nпредположительно все изза прокладки гбц",
       "howTo": "Долить до MAX, проехать 500–1000 км, замерить. Компрессия 10–12 бар. Агрессивную раскоксовку не делать до ровной компрессии. Потом мягкая промывка при необходимости.",
-      "updatedAt": "2026-08-26T11:00:00Z"
+      "updatedAt": "2026-10-19T18:07:29.560273Z"
     },
     {
       "id": "engine-oil",
