@@ -78,9 +78,9 @@ class FuelAnalyticsTest {
         )
         val updated = GarageMutations.addFuel(
             state,
-            fill("f1", "2026-08-26", 322500, 42.5),
+            fill("f1", "2026-08-26", 322700, 42.5),
         )
-        assertEquals(322500, updated.odometer.km)
+        assertEquals(322700, updated.odometer.km)
         assertTrue(updated.fuel.any { it.id == "f1" })
     }
 }
