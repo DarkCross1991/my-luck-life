@@ -1,5 +1,3 @@
-import org.gradle.language.jvm.tasks.ProcessResources
-
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -18,12 +16,4 @@ tasks.test {
     useJUnit()
 }
 
-tasks.named<ProcessResources>("processTestResources") {
-    from(rootProject.projectDir.resolve("../data/w124")) {
-        include("state.json")
-        rename { "seed-state.json" }
-    }
-    from(rootProject.projectDir.resolve("../data/w124")) {
-        include("jobs.json", "tools.json", "inbox.json")
-    }
-}
+// Fixtures live in src/test/resources, not data/w124: phone sync must not break unit tests.
