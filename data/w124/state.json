@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-19T18:20:00Z",
+  "vehicle": {
+    "id": "w124-200e",
+    "make": "Mercedes-Benz",
+    "model": "200E",
+    "chassis": "W124",
+    "year": 1991,
+    "engine": "M102",
+    "engineNote": "2.0 8v KE-Jetronic, ~122 л.с.",
+    "transmission": "АКПП 722.4",
+    "color": "зелёный / зелёный салон",
+    "purchasedAt": "2026-08-25",
+    "odometerAtPurchaseKm": 322200,
+    "tankLiters": 70.0,
+    "updatedAt": "2026-08-26T11:00:00Z"
+  },
+  "odometer": {
+    "km": 323200,
+    "recordedAt": "2026-10-19",
+    "source": "node",
+    "updatedAt": "2026-10-19T18:07:29.560273Z"
+  },
+  "fuel": [
+    {
+      "id": "74cc9c8d-8b3e-4a91-80ec-90f5de81b3b8",
+      "date": "2026-08-26",
+      "odometer": 322260,
+      "liters": 60.35,
+      "full": true,
+      "pricePerLiter": 69.99,
+      "totalCost": 4224.0,
+      "tripType": "city",
+      "station": null,
+      "note": null,
+      "receiptText": null,
+      "source": "manual",
+      "deleted": false,
+      "updatedAt": "2026-08-26T13:19:52.206191Z"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "atf-7224",
+      "title": "ATF АКПП 722.4",
+      "system": "transmission",
+      "kind": "service",
+      "priority": "high",
+      "open": true,
+      "intervalKm": 50000,
+      "intervalMonths": 48,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": "История неизвестна. Смотреть цвет/запах щупа: чёрное и горелое — плохо.",
+      "howTo": "Dexron III, интервал 40–60 тыс. км. Не переливать. Проверить вакуум модулятора и кикдаун.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "ignition-wires",
+      "title": "Бронепровода",
+      "system": "engine",
+      "kind": "service",
+      "priority": "urgent",
+      "open": false,
+      "intervalKm": null,
+      "intervalMonths": null,
+      "lastDoneAt": "2026-09-01",
+      "lastDoneKm": 322260,
+      "lastDoneNote": "Новые лежат в багажнике, не установлены.",
+      "howTo": "Поставить качественные Bosch / Beru / NGK вместе со свечами.",
+      "updatedAt": "2026-10-19T12:48:19.649267Z"
+    },
+    {
+      "id": "ps-fluid",
+      "title": "Жидкость ГУР",
+      "system": "chassis",
+      "kind": "inspect",
+      "priority": "normal",
+      "open": false,
+      "intervalKm": 40000,
+      "intervalMonths": 24,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": null,
+      "howTo": "Уровень, течи рейки и шлангов, цвет жидкости.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "oil-consumption",
+      "title": "Замер масложора",
+      "system": "engine",
+      "kind": "inspect",
+      "priority": "urgent",
+      "open": false,
+      "intervalKm": 1000,
+      "intervalMonths": null,
+      "lastDoneAt": "2026-10-19",
+      "lastDoneKm": 323200,
+      "lastDoneNote": "примерно 900-1000 грамм на 1000км\nпредположительно все изза прокладки гбц",
+      "howTo": "Долить до MAX, проехать 500–1000 км, замерить. Компрессия 10–12 бар. Агрессивную раскоксовку не делать до ровной компрессии. Потом мягкая промывка при необходимости.",
+      "updatedAt": "2026-10-19T18:07:29.560273Z"
+    },
+    {
+      "id": "engine-oil",
+      "title": "Масло ДВС + фильтр",
+      "system": "engine",
+      "kind": "service",
+      "priority": "high",
+      "open": true,
+      "intervalKm": 7500,
+      "intervalMonths": 12,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": "Дата в тетрадке прошлого владельца пока неизвестна — считать требующим замены, пока не сверим.",
+      "howTo": "Ориентир 7,5–10 тыс. км или раз в год. Объём ~5,0 л. Для M102 с пробегом обычно 10W-40 / 5W-40, не лить слишком жидкое без причины.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "wiper-linkage",
+      "title": "Механизм монодворника",
+      "system": "body",
+      "kind": "service",
+      "priority": "urgent",
+      "open": true,
+      "intervalKm": null,
+      "intervalMonths": 24,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": "Перебрать, вычистить, смазать. 1991 — ранняя алюминиевая крышка, винты сзади, не поддевать.",
+      "howTo": "Снять узел целиком, фото положения тяг и метка park. Внутри: Mercedes Gleitpaste A001 989 46 51 или Mobil 1 Synthetic Grease / Liqui Moly Thermoflex. На вал снаружи между ТО — ATF. Не графит, не литол-24, не смазка ступиц.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "coolant",
+      "title": "Охлаждающая жидкость",
+      "system": "engine",
+      "kind": "service",
+      "priority": "normal",
+      "open": true,
+      "intervalKm": null,
+      "intervalMonths": 24,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": null,
+      "howTo": "G48 / аналог, не смешивать цвета вслепую. Параллельно смотреть помпу, вискомуфту, радиатор, термостат.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "body-sills",
+      "title": "Пороги, арки, лонжероны",
+      "system": "body",
+      "kind": "seasonal",
+      "priority": "high",
+      "open": true,
+      "intervalKm": null,
+      "intervalMonths": 6,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": "Главный риск W124. Весна и осень — осмотр на яме.",
+      "howTo": "Пороги не накладки, чашки стоек, домкратные точки, арки у омывателя, поперечина под поддоном, крепления заднего подрамника, ниша запаски.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "accessory-belt-tensioner",
+      "title": "Ролик натяжителя / ремень агрегатов",
+      "system": "engine",
+      "kind": "inspect",
+      "priority": "urgent",
+      "open": false,
+      "intervalKm": null,
+      "intervalMonths": null,
+      "lastDoneAt": "2026-09-01",
+      "lastDoneKm": 322260,
+      "lastDoneNote": "был заменен натяжитель в сборе. сдох сейлет натяжителя. также заменен ремень генератора",
+      "howTo": "Стетоскоп или отвёртка как стетоскоп: ролик натяжителя → помпа → генератор → вискомуфта. При подтверждении подшипника менять натяжитель + ролик + демпфер комплектом. Не мазать ремень.",
+      "updatedAt": "2026-10-19T12:50:25.644638Z"
+    },
+    {
+      "id": "spark-plugs",
+      "title": "Свечи зажигания",
+      "system": "engine",
+      "kind": "service",
+      "priority": "urgent",
+      "open": true,
+      "intervalKm": 20000,
+      "intervalMonths": 24,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": "Прошлый владелец не менял. Старые свечи сохранить — по нагару смотреть масложор.",
+      "howTo": "Ключ 16 или 21 мм по факту. Bosch WR8DC+ / NGK BPR6ES или BP6ES, зазор 0,8 мм. Порядок 1-3-4-2.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "brakes",
+      "title": "Тормоза (колодки, трубки, суппорты)",
+      "system": "brakes",
+      "kind": "inspect",
+      "priority": "high",
+      "open": true,
+      "intervalKm": 15000,
+      "intervalMonths": 12,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": null,
+      "howTo": "Колодки, шланги, трубки на ржавчину, пыльники суппортов, жидкость раз в 2 года.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "timing-chain",
+      "title": "Цепь ГРМ / натяжитель",
+      "system": "engine",
+      "kind": "inspect",
+      "priority": "high",
+      "open": true,
+      "intervalKm": 20000,
+      "intervalMonths": 24,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": "1991 M102 — скорее двухрядная, но подтвердить по факту. Однорядная до ~1988 критична.",
+      "howTo": "Шум на холодную, натяжитель, успокоители. Не откладывать при стрекоте.",
+      "updatedAt": "2026-08-26T11:00:00Z"
+    },
+    {
+      "id": "head-gasket",
+      "title": "Прокладка ГБЦ vs масложор",
+      "system": "engine",
+      "kind": "inspect",
+      "priority": "urgent",
+      "open": true,
+      "intervalKm": null,
+      "intervalMonths": null,
+      "lastDoneAt": null,
+      "lastDoneKm": null,
+      "lastDoneNote": "Замер 19.10.2026: 900–1000 г / 1000 км. Версия с телефона — прокладка ГБЦ. Снимать голову рано.",
+      "howTo": "Сначала эмульсия, антифриз, свечи по цилиндрам, компрессия. Голову не снимать без следов охлаждайки или провала соседних цилиндров.",
+      "updatedAt": "2026-10-19T18:20:00Z"
+    }
+  ],
+  "logbook": [
+    {
+      "id": "log-oil-2026-10-19",
+      "date": "2026-10-19",
+      "title": "Масложор · 323 200 км",
+      "body": "Замер: 900–1000 г масла на 1000 км. Для M102 это уже не «чуть ест» — литр на тысячу. Узел замера закрыт правильно: цифра есть.\n\nПрокладка ГБЦ — одна из версий, не диагноз. Сама по себе цифра чаще бывает колпачки / маслосъёмные кольца / сапун. Прокладка обычно оставляет следы охлаждайки.\n\nГолову не снимать. Сначала отличить:\n1. Крышка маслозаливной и щуп: эмульсия, «майонез». Бачок: уровень падает без лужи? Выхлоп на прогретом: сладкий белый пар, не только на холодную.\n2. Свечи всё ещё родные — выкрутить и подписать по цилиндрам. Антифриз: молочная корка / выпаренный электрод. Масло: мокрый чёрный нагар. Сохранить.\n3. Компрессия на тёплом: 10–12 бар, разброс не больше ~1,5. Провал соседних цилиндров — аргумент за прокладку. Все низкие ровно — кольца. Один низкий — клапан или прогар.\n4. Сапун: масло во впуске без эмульсии — не ГБЦ.\n\nЕсли эмульсии нет, антифриз на месте, компрессия ровная — не голова. Раскоксовку не делать, пока нет цифр компрессии.\n\nКороткие поездки и повышенный ХХ чуть завышают жор, но литр на тысячу так не объясняется.",
+      "tags": [
+        "мотор",
+        "масло",
+        "гбц"
+      ],
+      "deleted": false,
+      "updatedAt": "2026-10-19T18:20:00Z"
+    },
+    {
+      "id": "0f641d30-aad8-4945-90b2-d957695aa34e",
+      "date": "2026-10-19",
+      "title": "Заметка · 323 200 км",
+      "body": "расход на смешанное режиме 12.7\nесть холостые, но чаще держатся более высокие обороты",
+      "tags": [
+        "заметка",
+        "inbox"
+      ],
+      "deleted": false,
+      "updatedAt": "2026-10-19T13:06:17.919130Z"
+    },
+    {
+      "id": "log-belt-2",
+      "date": "2026-08-25",
+      "title": "Свист ремня: характер",
+      "body": "Глазури на ремне нет. Тонкий свист. Фары и руль тональность не меняют, только частота с оборотами. Похоже на подшипник (ролик натяжителя вероятнее всего), не на проскальзывание ремня.",
+      "tags": [
+        "мотор",
+        "ремень",
+        "диагностика"
+      ],
+      "deleted": false,
+      "updatedAt": "2026-08-25T20:00:00Z"
+    },
+    {
+      "id": "log-belt-1",
+      "date": "2026-08-25",
+      "title": "Свист ремня: история",
+      "body": "Ремень новый. Месяц после замены — тишина, потом свист. Час езды до 65 км/ч свист не ушёл.",
+      "tags": [
+        "мотор",
+        "ремень"
+      ],
+      "deleted": false,
+      "updatedAt": "2026-08-25T19:00:00Z"
+    },
+    {
+      "id": "log-purchase",
+      "date": "2026-08-25",
+      "title": "Покупка",
+      "body": "Куплен Mercedes-Benz 200E W124, 1991, M102 + АКПП, пробег 322 200 км, зелёный. У прошлого владельца тетрадка со всеми ТО — загрузить и сверить. Срочно: свист ремня, свечи, бронепровода в багажнике, замер масложора, переборка монодворника.",
+      "tags": [
+        "покупка",
+        "карточка"
+      ],
+      "deleted": false,
+      "updatedAt": "2026-08-25T18:00:00Z"
+    }
+  ],
+  "deletedIds": []
+}

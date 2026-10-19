@@ -1,0 +1,54 @@
+name: Inbox
+
+on:
+  push:
+    paths:
+      - "data/w124/inbox.json"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pending notes
+        id: pending
+        run: |
+          python3 <<'PY'
+          import json, os, pathlib
+          inbox = json.loads(pathlib.Path("data/w124/inbox.json").read_text())
+          pending = [i for i in inbox.get("items", []) if i.get("status") == "pending"]
+          lines = ["<!-- w124-inbox -->", f"Pending journal notes: {len(pending)}"]
+          for item in pending:
+              lines += [
+                  "",
+                  f"- id: `{item.get('id')}`",
+                  f"  km: {item.get('odometer')}",
+                  f"  date: {item.get('date')}",
+                  f"  text: {item.get('body','')[:400]}",
+              ]
+          pathlib.Path("pending.md").write_text("\n".join(lines) + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"count={len(pending)}\n")
+          PY
+      - name: Ping PR or issue
+        if: steps.pending.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(cat pending.md)
+          PR=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$PR" ]; then
+            gh pr comment "$PR" --body "$BODY"
+          else
+            EXISTING=$(gh issue list --search "w124 inbox pending in:title" --state open --json number --jq '.[0].number // empty')
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body "$BODY"
+            else
+              gh issue create --title "w124 inbox pending" --body "$BODY"
+            fi
+          fi
