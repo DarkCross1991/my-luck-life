@@ -2,8 +2,20 @@ name: Android
 
 on:
   push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+      - "data/app/**"
   pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+      - "data/app/**"
   workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -17,7 +29,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      # Default packages include obsolete `tools` (sdkmanager: Failed to find package 'tools').
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Versions
         id: ver
         run: |
