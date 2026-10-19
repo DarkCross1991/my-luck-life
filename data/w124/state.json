@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-26T13:19:52.206191Z",
+  "updatedAt": "2026-10-19T12:50:25.644638Z",
   "vehicle": {
     "id": "w124-200e",
     "make": "Mercedes-Benz",
@@ -18,9 +18,9 @@
   },
   "odometer": {
     "km": 322260,
-    "recordedAt": "2026-08-26",
-    "source": "fuel",
-    "updatedAt": "2026-08-26T13:19:52.206191Z"
+    "recordedAt": "2026-09-01",
+    "source": "node",
+    "updatedAt": "2026-10-19T12:50:25.644638Z"
   },
   "fuel": [
     {
@@ -34,6 +34,8 @@
       "tripType": "city",
       "station": null,
       "note": null,
+      "receiptText": null,
+      "source": "manual",
       "deleted": false,
       "updatedAt": "2026-08-26T13:19:52.206191Z"
     }
@@ -60,14 +62,14 @@
       "system": "engine",
       "kind": "service",
       "priority": "urgent",
-      "open": true,
+      "open": false,
       "intervalKm": null,
       "intervalMonths": null,
-      "lastDoneAt": null,
-      "lastDoneKm": null,
+      "lastDoneAt": "2026-09-01",
+      "lastDoneKm": 322260,
       "lastDoneNote": "Новые лежат в багажнике, не установлены.",
       "howTo": "Поставить качественные Bosch / Beru / NGK вместе со свечами.",
-      "updatedAt": "2026-08-26T11:00:00Z"
+      "updatedAt": "2026-10-19T12:48:19.649267Z"
     },
     {
       "id": "ps-fluid",
@@ -165,14 +167,14 @@
       "system": "engine",
       "kind": "inspect",
       "priority": "urgent",
-      "open": true,
+      "open": false,
       "intervalKm": null,
       "intervalMonths": null,
-      "lastDoneAt": "2026-07-01",
-      "lastDoneKm": 322000,
-      "lastDoneNote": "Стоял новый ремень: месяц тишины, потом постоянный тонкий свист. Глазури нет, нагрузка фар/ГУР тон не меняет.",
+      "lastDoneAt": "2026-09-01",
+      "lastDoneKm": 322260,
+      "lastDoneNote": "был заменен натяжитель в сборе. сдох сейлет натяжителя. также заменен ремень генератора",
       "howTo": "Стетоскоп или отвёртка как стетоскоп: ролик натяжителя → помпа → генератор → вискомуфта. При подтверждении подшипника менять натяжитель + ролик + демпфер комплектом. Не мазать ремень.",
-      "updatedAt": "2026-08-26T11:00:00Z"
+      "updatedAt": "2026-10-19T12:50:25.644638Z"
     },
     {
       "id": "spark-plugs",
