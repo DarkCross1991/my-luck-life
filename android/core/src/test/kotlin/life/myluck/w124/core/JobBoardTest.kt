@@ -166,13 +166,16 @@ class JobBoardTest {
         assertTrue(state.logbook.any { it.id == "log-hose-2026-09-21" })
         assertTrue(state.logbook.any { it.id == "log-belt-2026-09-21" })
         val rms = state.nodes.first { it.id == "rear-main-seal-pack" }
-        assertTrue(rms.open)
-        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "rear-main-seal-pack" }.urgency)
-        val rmsJob = jobs.jobs.first { it.nodeId == "rear-main-seal-pack" }
-        assertTrue(rmsJob.steps.any { it.contains("A017 997 74 47") || it.contains("A0179977447") })
-        assertTrue(rmsJob.steps.any { it.contains("A010 997 45 47") || it.contains("A126 277 02 95") })
-        assertTrue(rmsJob.toolIds.contains("rear-main-seal"))
-        assertTrue(state.logbook.any { it.id == "log-rms-pack-2026-09-21" })
+        assertFalse(rms.open)
+        assertEquals(NodeUrgency.OK, views.first { it.node.id == "rear-main-seal-pack" }.urgency)
+        val headLeak = state.nodes.first { it.id == "head-oil-leak" }
+        assertTrue(headLeak.open)
+        assertEquals(NodeUrgency.URGENT, views.first { it.node.id == "head-oil-leak" }.urgency)
+        val headJob = jobs.jobs.first { it.nodeId == "head-oil-leak" }
+        assertTrue(headJob.steps.any { it.contains("A102 016 12 21") || it.contains("клапанной крышки") })
+        assertTrue(headJob.steps.any { it.contains("A102 016 24 20") || it.contains("прокладка ГБЦ") })
+        assertTrue(headJob.toolIds.contains("valve-cover-gasket-m102"))
+        assertTrue(state.logbook.any { it.id == "log-head-oil-2026-10-19" })
         val belt = state.nodes.first { it.id == "accessory-belt-tensioner" }
         assertFalse(belt.open)
         assertEquals("2026-09-21", belt.lastDoneAt)
