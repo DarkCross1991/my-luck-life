@@ -177,10 +177,17 @@ class JobBoardTest {
         assertTrue(headJob.toolIds.contains("valve-cover-gasket-m102"))
         assertTrue(headJob.toolIds.contains("intake-manifold-gasket-m102"))
         assertTrue(headJob.toolIds.contains("exhaust-manifold-gasket-m102"))
+        assertTrue(headJob.toolIds.contains("torque-wrench"))
+        assertTrue(headJob.steps.any { it.contains("55") && it.contains("90") })
         assertTrue(tools.tools.first { it.id == "valve-stem-seals-m102" }.note!!.contains("A1020500158"))
         assertTrue(tools.tools.first { it.id == "intake-manifold-gasket-m102" }.note!!.contains("A1021412780"))
+        val torque = tools.tools.first { it.id == "torque-wrench" }
+        assertTrue(torque.note!!.contains("55"))
+        assertTrue(torque.note!!.contains("90"))
+        assertTrue(torque.note!!.contains("122"))
         assertTrue(state.logbook.any { it.id == "log-head-oil-2026-10-19" })
         assertTrue(state.logbook.any { it.id == "log-manifold-seals-oem-2026-10-19" })
+        assertTrue(state.logbook.any { it.id == "log-torque-wrench-mb-2026-10-19" })
         val belt = state.nodes.first { it.id == "accessory-belt-tensioner" }
         assertFalse(belt.open)
         assertEquals("2026-09-21", belt.lastDoneAt)
